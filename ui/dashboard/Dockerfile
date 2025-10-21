@@ -20,7 +20,7 @@ RUN npm run build -- --configuration=production
 # ---
 
 # Stage 2: Serve the application using Nginx
-FROM nginx:1.25-alpine
+FROM nginx:1.26.3-alpine
 
 # Remove the default Nginx configuration file
 RUN rm /etc/nginx/conf.d/default.conf
