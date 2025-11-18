@@ -1,0 +1,44 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+release.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Java
+*.class
+*.jar
+*.war
+*.log
+hs_err_pid*
+
+# Spring Boot
+*.log
+logs/
+
+# Node/Angular
+node_modules/
+dist/
+.angular/
+.npm/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+*.bak
+
+# Secrets
+.env
+*.key
+*.pem
