@@ -20,7 +20,7 @@
   </properties>
 
   <modules>
-    <!-- modules will be added as they are created -->
+    <module>common-messaging</module>
   </modules>
 
 </project>
