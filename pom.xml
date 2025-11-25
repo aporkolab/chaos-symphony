@@ -29,6 +29,7 @@
 
   <modules>
     <module>common-messaging</module>
+    <module>order-api</module>
   </modules>
 
 <dependencyManagement>
