@@ -1,0 +1,63 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: order-api
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orders
+    username: app
+    password: pass
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  jackson:
+    time-zone: Europe/Budapest
+
+  kafka:
+    bootstrap-servers: 127.0.0.1:29092
+    listener:
+      ack-mode: record
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      acks: all
+      retries: 10
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 120000
+        linger.ms: 10
+        batch.size: 32768
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer    
+
+
+fraud:
+  velocity:
+    window:
+      minutes: 60
+    max:
+      orders: 5
+
+management:
+  server:
+    port: 9080
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      app: ${spring.application.name}
+
+logging:
+  level:
+    root: INFO
+    org.springframework.kafka: INFO
+    hu.porkolab.chaosSymphony: DEBUG  
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
