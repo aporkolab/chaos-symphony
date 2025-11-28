@@ -1,0 +1,28 @@
+<div class="flex h-screen bg-gray-800 text-white">
+  <!-- Sidebar -->
+  <div class="w-64 bg-gray-900 flex flex-col flex-shrink-0">
+    <div class="p-4 text-2xl font-bold border-b border-gray-700">
+      Chaos Symphony
+    </div>
+    <nav class="mt-4 flex-grow">
+      <a routerLink="/orders" routerLinkActive="bg-gray-700" class="block py-2 px-4 hover:bg-gray-700">Orders</a>
+      <a routerLink="/dlq" routerLinkActive="bg-gray-700" class="block py-2 px-4 hover:bg-gray-700">DLQ</a>
+      <a routerLink="/chaos" routerLinkActive="bg-gray-700" class="block py-2 px-4 hover:bg-gray-700">Chaos Panel</a>
+      <a routerLink="/slo" routerLinkActive="bg-gray-700" class="block py-2 px-4 hover:bg-gray-700">SLO</a>
+    </nav>
+    <div class="p-4 border-t border-gray-700">
+      <div *ngIf="isLoggedIn; else showLogin">
+        <p class="text-sm">Welcome, {{ username }}</p>
+        <button (click)="logout()" class="w-full mt-2 py-2 px-4 bg-red-600 hover:bg-red-700 rounded">Logout</button>
+      </div>
+      <ng-template #showLogin>
+        <a routerLink="/login" class="block w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded text-center">Login</a>
+      </ng-template>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <main class="flex-1 p-6 overflow-y-auto">
+    <router-outlet></router-outlet>
+  </main>
+</div>
