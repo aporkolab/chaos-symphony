@@ -30,6 +30,7 @@
   <modules>
     <module>common-messaging</module>
     <module>order-api</module>
+    <module>orchestrator</module>
   </modules>
 
 <dependencyManagement>
