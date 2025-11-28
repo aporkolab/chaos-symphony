@@ -1,0 +1,42 @@
+{
+  "/api/auth": {
+    "target": "http://localhost:8080",
+    "secure": false,
+    "logLevel": "debug"
+  },
+  "/api/orders": {
+    "target": "http://localhost:8080",
+    "secure": false,
+    "logLevel": "debug"
+  },
+  "/api/chaos": {
+    "target": "http://localhost:8088",
+    "secure": false,
+    "logLevel": "debug"
+  },
+  "/api/canary": {
+    "target": "http://localhost:8088",
+    "secure": false,
+    "logLevel": "debug"
+  },
+  "/api/dlq": {
+    "target": "http://localhost:8089",
+    "secure": false,
+    "logLevel": "debug"
+  },
+  "/api/slo": {
+    "target": "http://localhost:8095",
+    "secure": false,
+    "logLevel": "debug"
+  },
+  "/api/metrics": {
+    "target": "http://localhost:8095",
+    "secure": false,
+    "logLevel": "debug"
+  },
+  "/api/replay": {
+    "target": "http://localhost:8095",
+    "secure": false,
+    "logLevel": "debug"
+  }
+}
