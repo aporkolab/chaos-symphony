@@ -1,0 +1,86 @@
+server:
+  port: 8091
+
+spring:
+  application:
+    name: orchestrator
+  datasource:
+    url: jdbc:h2:mem:orchestrator;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate.ddl-auto: none
+  sql:
+    init:
+      mode: always
+  kafka:
+    bootstrap-servers: 127.0.0.1:29092
+    listener:
+      ack-mode: record
+      type: single
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+management:
+  server:
+    port: 9091
+  endpoint:
+    env:
+      post:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,env
+  metrics:
+    tags:
+      app: ${spring.application.name}
+
+logging:
+  level:
+    root: INFO
+    org.springframework.kafka: INFO
+    hu.porkolab.chaosSymphony: DEBUG
+
+chaos:
+  retry:
+    strategy: exponential
+    max-attempts: 4            
+    initial-interval-ms: 300
+    multiplier: 2.0
+    max-interval-ms: 5000
+
+canary:
+  payment:
+    percentage: 0.0
+
+---
+spring:
+  config:
+    activate:
+      on-profile: chaos
+chaos:
+  retry:
+    strategy: exponential
+    max-attempts: 6
+    initial-interval-ms: 500
+    multiplier: 2.0
+    max-interval-ms: 15000
+
+---
+spring:
+  config:
+    activate:
+      on-profile: ci
+chaos:
+  retry:
+    strategy: fixed
+    max-attempts: 2
+    initial-interval-ms: 200
