@@ -18,6 +18,7 @@
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <pact.version>4.6.18</pact.version>
   </properties>
 
   <repositories>
@@ -42,6 +43,18 @@
       <type>pom</type>
       <scope>import</scope>
     </dependency>
+<dependency>
+  <groupId>au.com.dius.pact.consumer</groupId>
+  <artifactId>junit5</artifactId>
+  <version>${pact.version}</version>
+  <scope>test</scope>
+</dependency>
+<dependency>
+  <groupId>au.com.dius.pact.provider</groupId>
+  <artifactId>junit5</artifactId>
+  <version>${pact.version}</version>
+  <scope>test</scope>
+</dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>
