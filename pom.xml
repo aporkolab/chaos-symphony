@@ -32,6 +32,7 @@
     <module>common-messaging</module>
     <module>order-api</module>
     <module>orchestrator</module>
+    <module>payment-svc</module>
   </modules>
 
 <dependencyManagement>
