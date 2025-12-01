@@ -1,0 +1,8 @@
+spring:
+  kafka:
+    topic:
+      payment:
+        requested: payment.requested.canary
+    group:
+      id:
+        payment: payment-requested-canary
