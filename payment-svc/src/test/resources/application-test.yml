@@ -1,0 +1,35 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+
+kafka:
+  topic:
+    payment:
+      requested: payment.requested
+      requested.canary: payment.requested.canary
+  group:
+    id:
+      payment: payment-group
+      payment.canary: payment-canary-group
+
+logging:
+  level:
+    hu.porkolab.chaosSymphony: DEBUG
+    au.com.dius.pact: DEBUG
