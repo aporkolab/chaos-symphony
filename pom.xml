@@ -33,6 +33,7 @@
     <module>order-api</module>
     <module>orchestrator</module>
     <module>payment-svc</module>
+    <module>inventory-svc</module>
   </modules>
 
 <dependencyManagement>
