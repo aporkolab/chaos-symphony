@@ -1,0 +1,109 @@
+server:
+  port: 8085
+spring:
+  application:
+    name: shipping-svc
+  datasource:
+    url: jdbc:h2:mem:shipping;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate.ddl-auto: none
+  sql:
+    init:
+      mode: always
+  jackson:
+    time-zone: Europe/Budapest
+  kafka:
+    topic:
+      shipping:
+        requested: shipping.requested
+        dlt: shipping.requested.dlt
+    group:
+      id:
+        shipping: shipping-requested
+    retry:
+      max-attempts: 5
+      initial-interval-ms: 300
+      multiplier: 2.5
+      max-interval-ms: 3000
+    bootstrap-servers: 127.0.0.1:29092
+    listener:
+      ack-mode: record
+      type: single
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      acks: all
+      retries: 10
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 120000
+        linger.ms: 10
+        batch.size: 32768
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    properties:
+      client.dns.lookup: use_all_dns_ips
+
+management:
+  server:
+    port: 9085
+  metrics:
+    tags:
+      app: ${spring.application.name}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    org.springframework.kafka: INFO
+    hu.porkolab.chaosSymphony: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
+
+
+shipping:
+  processing:
+    success-rate: 0.98
+
+chaos:
+  retry:
+    strategy: exponential
+    max-attempts: 4            
+    initial-interval-ms: 300
+    multiplier: 2.0
+    max-interval-ms: 5000
+
+---
+spring:
+  config:
+    activate:
+      on-profile: chaos
+chaos:
+  retry:
+    strategy: exponential
+    max-attempts: 6
+    initial-interval-ms: 500
+    multiplier: 2.0
+    max-interval-ms: 15000
+
+---
+spring:
+  config:
+    activate:
+      on-profile: ci
+chaos:
+  retry:
+    strategy: fixed
+    max-attempts: 2
+    initial-interval-ms: 200
