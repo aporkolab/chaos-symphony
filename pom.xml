@@ -35,6 +35,7 @@
     <module>payment-svc</module>
     <module>inventory-svc</module>
     <module>shipping-svc</module>
+    <module>chaos-svc</module>
   </modules>
 
 <dependencyManagement>
