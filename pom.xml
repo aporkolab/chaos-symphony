@@ -36,6 +36,7 @@
     <module>inventory-svc</module>
     <module>shipping-svc</module>
     <module>chaos-svc</module>
+    <module>dlq-admin</module>
   </modules>
 
 <dependencyManagement>
