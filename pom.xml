@@ -37,6 +37,7 @@
     <module>shipping-svc</module>
     <module>chaos-svc</module>
     <module>dlq-admin</module>
+    <module>streams-analytics</module>
   </modules>
 
 <dependencyManagement>
