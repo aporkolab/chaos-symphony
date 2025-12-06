@@ -29,8 +29,7 @@
   </repositories>
 
   <modules>
-    <module>common-messaging</module>
-    <module>order-api</module>
+  <module>common-messaging</module>
     <module>orchestrator</module>
     <module>payment-svc</module>
     <module>inventory-svc</module>
@@ -38,6 +37,8 @@
     <module>chaos-svc</module>
     <module>dlq-admin</module>
     <module>streams-analytics</module>
+    <module>order-api</module>
+    <module>gameday-svc</module>
   </modules>
 
 <dependencyManagement>
