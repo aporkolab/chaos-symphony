@@ -1,0 +1,71 @@
+<div class="container mx-auto p-4 text-gray-200">
+  <h1 class="text-3xl font-bold mb-6">SLO Dashboard</h1>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- p95 Latency Chart -->
+    <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+      <h2 class="text-xl font-semibold mb-4">E2E p95 Latency (ms)</h2>
+      <div class="h-64">
+        <ngx-charts-line-chart
+          [view]="[700, 250]"
+          [scheme]="colorScheme"
+          [results]="latencyData"
+          [xAxis]="true"
+          [yAxis]="true"
+          [legend]="false"
+          [showXAxisLabel]="true"
+          [showYAxisLabel]="true"
+          xAxisLabel="Time"
+          yAxisLabel="Latency (ms)"
+          [autoScale]="true"
+          [referenceLines]="latencyRefLines"
+          [showRefLines]="true"
+          [showRefLabels]="true">
+        </ngx-charts-line-chart>
+      </div>
+    </div>
+
+    <!-- DLT Count Chart -->
+    <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+      <h2 class="text-xl font-semibold mb-4">DLT Message Count</h2>
+      <div class="h-64">
+        <ngx-charts-line-chart
+          [view]="[700, 250]"
+          [scheme]="colorScheme"
+          [results]="dltData"
+          [xAxis]="true"
+          [yAxis]="true"
+          [legend]="false"
+          [showXAxisLabel]="true"
+          [showYAxisLabel]="true"
+          xAxisLabel="Time"
+          yAxisLabel="Count">
+        </ngx-charts-line-chart>
+      </div>
+    </div>
+
+    <!-- SLO Burn Rate Chart -->
+    <div class="lg:col-span-2 bg-gray-800 p-4 rounded-lg shadow-lg">
+      <h2 class="text-xl font-semibold mb-4">SLO Burn Rate (1h window)</h2>
+      <div class="h-64">
+        <ngx-charts-line-chart
+          [view]="[1400, 250]"
+          [scheme]="colorScheme"
+          [results]="burnRateData"
+          [xAxis]="true"
+          [yAxis]="true"
+          [legend]="false"
+          [showXAxisLabel]="true"
+          [showYAxisLabel]="true"
+          xAxisLabel="Time"
+          yAxisLabel="Burn Rate"
+          [referenceLines]="burnRateRefLines"
+          [showRefLines]="true"
+          [showRefLabels]="true">
+        </ngx-charts-line-chart>
+      </div>
+    </div>
+
+  </div>
+</div>
