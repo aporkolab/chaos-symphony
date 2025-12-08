@@ -1,0 +1,91 @@
+<div class="container mx-auto p-4 text-gray-200">
+  <h1 class="text-3xl font-bold mb-6">Control Panel</h1>
+
+  <!-- Canary Deployment Section -->
+  <div class="bg-gray-800 p-6 rounded-lg shadow-lg border border-cyan-500 mb-8">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-cyan-400">Canary Deployment</h2>
+        <p class="text-sm text-gray-400">Route 5% of payment traffic to the canary instance.</p>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input
+          type="checkbox"
+          class="sr-only peer"
+          [(ngModel)]="canaryEnabled"
+          (change)="onCanaryToggle()"
+          [disabled]="isLoading">
+        <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-cyan-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+      </label>
+    </div>
+  </div>
+
+  <!-- Chaos Rules Manager -->
+  <div class="bg-gray-800 p-6 rounded-lg shadow-lg border border-red-500">
+    <h2 class="text-2xl font-semibold text-red-400 mb-4">Chaos Rules Manager</h2>
+
+    <!-- Form for Adding/Editing Rules -->
+    <form [formGroup]="ruleForm" (ngSubmit)="onSubmit()" class="mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+        <div class="md:col-span-2">
+          <label class="block text-gray-400 text-sm font-bold mb-2" for="topic">Target Topic</label>
+          <input formControlName="topic" id="topic" type="text" placeholder="e.g., payment.requested"
+                 class="bg-gray-700 shadow appearance-none border border-gray-600 rounded w-full py-2 px-3 text-gray-200 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+        <div>
+          <label class="block text-gray-400 text-sm font-bold mb-2" for="pDrop">p(Drop)</label>
+          <input formControlName="pDrop" id="pDrop" type="number" step="0.01" class="bg-gray-700 shadow w-full py-2 px-3 rounded">
+        </div>
+        <div>
+          <label class="block text-gray-400 text-sm font-bold mb-2" for="pDup">p(Dup)</label>
+          <input formControlName="pDup" id="pDup" type="number" step="0.01" class="bg-gray-700 shadow w-full py-2 px-3 rounded">
+        </div>
+        <div>
+          <label class="block text-gray-400 text-sm font-bold mb-2" for="pCorrupt">p(Corrupt)</label>
+          <input formControlName="pCorrupt" id="pCorrupt" type="number" step="0.01" class="bg-gray-700 shadow w-full py-2 px-3 rounded">
+        </div>
+        <div class="md:col-span-4">
+          <label class="block text-gray-400 text-sm font-bold mb-2" for="maxDelayMs">Max Delay (ms)</label>
+          <input formControlName="maxDelayMs" id="maxDelayMs" type="number" class="bg-gray-700 shadow w-full py-2 px-3 rounded">
+        </div>
+        <div class="flex items-center justify-end">
+          <button type="submit" [disabled]="ruleForm.invalid || isLoading"
+                  class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:bg-gray-500 w-full">
+            Save Rule
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Table of Current Rules -->
+    <div class="overflow-x-auto">
+      <table class="min-w-full table-auto">
+        <thead class="bg-gray-700">
+          <tr>
+            <th class="px-4 py-2 text-left">Topic</th>
+            <th class="px-4 py-2 text-left">Drop</th>
+            <th class="px-4 py-2 text-left">Dup</th>
+            <th class="px-4 py-2 text-left">Corrupt</th>
+            <th class="px-4 py-2 text-left">Delay(ms)</th>
+            <th class="px-4 py-2 text-left">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-gray-800">
+          <tr *ngIf="isLoading"><td colspan="6" class="text-center p-4">Loading...</td></tr>
+          <tr *ngIf="!isLoading && topics.length === 0"><td colspan="6" class="text-center p-4">No active chaos rules.</td></tr>
+          <tr *ngFor="let topic of topics" class="border-b border-gray-700">
+            <td class="px-4 py-2 font-mono">{{ topic }}</td>
+            <td class="px-4 py-2">{{ rules[topic].pDrop }}</td>
+            <td class="px-4 py-2">{{ rules[topic].pDup }}</td>
+            <td class="px-4 py-2">{{ rules[topic].pCorrupt }}</td>
+            <td class="px-4 py-2">{{ rules[topic].maxDelayMs }}</td>
+            <td class="px-4 py-2">
+              <button (click)="editRule(topic)" class="text-indigo-400 hover:text-indigo-300 mr-3">Edit</button>
+              <button (click)="onDelete(topic)" class="text-red-400 hover:text-red-300">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
