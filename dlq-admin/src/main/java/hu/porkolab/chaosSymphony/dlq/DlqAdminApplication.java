@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 @OpenAPIDefinition(info = @Info(title = "DLQ Admin API", version = "1.0", description = "API for managing Dead Letter Queues."))
+
 public class DlqAdminApplication {
     public static void main(String[] args) {
         SpringApplication.run(DlqAdminApplication.class, args);

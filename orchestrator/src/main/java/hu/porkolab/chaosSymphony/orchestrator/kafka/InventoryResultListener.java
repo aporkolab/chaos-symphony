@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import hu.porkolab.chaosSymphony.common.EnvelopeHelper;
 import hu.porkolab.chaosSymphony.common.EventEnvelope;
 import hu.porkolab.chaosSymphony.common.idemp.IdempotencyStore;
+import hu.porkolab.chaosSymphony.orchestrator.saga.SagaOrchestrator;
 import io.micrometer.core.instrument.Counter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,8 +23,9 @@ public class InventoryResultListener {
 
 	private final IdempotencyStore idempotencyStore;
 	private final ShippingRequestProducer shippingProducer;
+	private final SagaOrchestrator sagaOrchestrator;
 	private final ObjectMapper om;
-	private final Counter ordersFailed; // JAVÍTVA: A success counter felesleges itt
+	private final Counter ordersFailed;
 
 	@KafkaListener(topics = "inventory.result", groupId = "orchestrator-inventory-result")
 	@Transactional
@@ -37,24 +39,29 @@ public class InventoryResultListener {
 		String orderId = env.getOrderId();
 		JsonNode msg = om.readTree(env.getPayload());
 		String status = msg.path("status").asText("");
+		String reservationId = msg.path("reservationId").asText(null);
 
 		log.info("Orchestrator got InventoryResult: orderId={}, status={}", orderId, status);
 
 		switch (status) {
 			case "RESERVED" -> {
+				
+				sagaOrchestrator.onInventoryReserved(orderId, reservationId);
+
 				ObjectNode payload = om.createObjectNode()
 						.put("orderId", orderId)
 						.put("address", "Budapest");
 				shippingProducer.sendRequest(orderId, payload.toString());
 				log.debug("Shipping request sent for orderId={}", orderId);
-				// JAVÍTVA: A success számlálót innen kivettük
 			}
 			case "OUT_OF_STOCK" -> {
 				log.warn("Inventory OUT_OF_STOCK for orderId={}", orderId);
+				sagaOrchestrator.onInventoryFailed(orderId, "Inventory out of stock");
 				ordersFailed.increment();
 			}
 			default -> {
 				log.warn("Unknown inventory status='{}' for orderId={}", status, orderId);
+				sagaOrchestrator.onInventoryFailed(orderId, "Unknown inventory status: " + status);
 				ordersFailed.increment();
 			}
 		}

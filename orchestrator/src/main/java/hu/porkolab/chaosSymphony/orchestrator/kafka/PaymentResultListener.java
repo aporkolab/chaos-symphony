@@ -2,10 +2,11 @@ package hu.porkolab.chaosSymphony.orchestrator.kafka;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode; // Szükséges import
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import hu.porkolab.chaosSymphony.common.EnvelopeHelper;
 import hu.porkolab.chaosSymphony.common.EventEnvelope;
 import hu.porkolab.chaosSymphony.common.idemp.IdempotencyStore;
+import hu.porkolab.chaosSymphony.orchestrator.saga.SagaOrchestrator;
 import io.micrometer.core.instrument.Counter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +22,8 @@ public class PaymentResultListener {
 
 	private final ObjectMapper om;
 	private final IdempotencyStore idempotencyStore;
-	private final InventoryRequestProducer inventoryProducer; // KIEGÉSZÍTVE: Új producer
+	private final InventoryRequestProducer inventoryProducer;
+	private final SagaOrchestrator sagaOrchestrator;
 	private final Counter ordersFailed;
 
 	@KafkaListener(topics = "payment.result", groupId = "orchestrator-payment-result")
@@ -36,14 +38,22 @@ public class PaymentResultListener {
 		JsonNode p = om.readTree(env.getPayload());
 		String status = p.path("status").asText("UNKNOWN");
 		String orderId = p.path("orderId").asText(null);
+		String paymentId = p.path("paymentId").asText(null);
 
 		if ("CHARGED".equalsIgnoreCase(status)) {
 			log.info("Payment successful for orderId={}, requesting inventory reservation.", orderId);
 
+			
+			sagaOrchestrator.onPaymentCompleted(orderId, paymentId);
+
 			ObjectNode payload = om.createObjectNode().put("orderId", orderId);
 			inventoryProducer.sendRequest(orderId, payload.toString());
 		} else {
-			log.error("Payment failed for orderId={}", orderId);
+			String failureReason = p.path("reason").asText("Payment declined");
+			log.error("Payment failed for orderId={}, reason={}", orderId, failureReason);
+			
+			
+			sagaOrchestrator.onPaymentFailed(orderId, failureReason);
 			ordersFailed.increment();
 		}
 	}

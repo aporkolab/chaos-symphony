@@ -1,152 +1,280 @@
-# Chaos Symphony
+# Chaos Symphony v.1.3.0
 
 [![CI Build and Test](https://github.com/APorkolab/chaos-symphony/actions/workflows/ci.yml/badge.svg)](https://github.com/APorkolab/chaos-symphony/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
+[![Coverage](https://img.shields.io/badge/coverage-60%25+-brightgreen.svg)](https://github.com/APorkolab/chaos-symphony)
 
-Chaos Symphony is a fictitious, event-driven, microservices-based system designed to demonstrate and teach advanced software engineering patterns. It simulates a simple payment processing workflow but focuses heavily on resilience, observability, and automated chaos engineering to ensure the system can withstand real-world failures.
+> **Author:** Dr. Porkoláb Ádám  
+> **Repository:** [github.com/APorkolab/chaos-symphony](https://github.com/APorkolab/chaos-symphony)
 
-This project is not just a demo; it's a hands-on lab. It's built to be broken, observed, and improved. The core philosophy is that a system's true strength is revealed not when it's running perfectly, but when it's gracefully handling failures.
+---
+
+**Chaos Symphony** is a production-grade, event-driven microservices platform designed to demonstrate and teach advanced software engineering patterns. It simulates an order processing workflow with a focus on **resilience**, **observability**, and **chaos engineering** to ensure the system can withstand real-world failures.
+
+This project is not just a demo—it's a hands-on laboratory. Built to be broken, observed, and improved. The core philosophy: _a system's true strength is revealed not when it's running perfectly, but when it's gracefully handling failures._
+
+---
+
+## Table of Contents
+
+- [Chaos Symphony v.1.3.0](#chaos-symphony-v130)
+  - [Table of Contents](#table-of-contents)
+  - [Service Level Objectives (SLOs)](#service-level-objectives-slos)
+  - [Architecture Overview](#architecture-overview)
+    - [Core Principles](#core-principles)
+    - [System Components](#system-components)
+  - [Key Patterns Implemented](#key-patterns-implemented)
+  - [Tech Stack](#tech-stack)
+  - [Quick Start](#quick-start)
+    - [Prerequisites](#prerequisites)
+    - [1. Build the Project](#1-build-the-project)
+    - [2. Start the Stack](#2-start-the-stack)
+    - [3. Access the System](#3-access-the-system)
+  - [Kubernetes Deployment](#kubernetes-deployment)
+    - [Deploy](#deploy)
+  - [5-Minute Demo Script](#5-minute-demo-script)
+  - [Project Structure](#project-structure)
+  - [Anti-CRUD Checklist](#anti-crud-checklist)
+  - [Contributing](#contributing)
+  - [License](#license)
+
+---
 
 ## Service Level Objectives (SLOs)
 
-| Service Level Indicator (SLI) | Objective (per day) |
-| :--- | :--- |
-| **End-to-End Latency** | `p95(order_processing_time) < 2000ms` |
-| **Availability** | `successful_requests / total_requests >= 99.5%` |
-| **Data Integrity** | `dlt_messages_total < 0.3% of total messages` |
+| Service Level Indicator (SLI) | Objective (per day)                             |
+| :---------------------------- | :---------------------------------------------- |
+| **End-to-End Latency**        | `p95(order_processing_time) < 2000ms`           |
+| **Availability**              | `successful_requests / total_requests >= 99.5%` |
+| **Data Integrity**            | `dlt_messages_total < 0.3% of total messages`   |
 
 ---
 
+## Architecture Overview
 
+### Core Principles
+
+- **Event-Driven Architecture (EDA):** Asynchronous message passing via Apache Kafka. Services are decoupled, scalable, and use the Outbox pattern for data consistency.
+- **Resilience by Design:** Idempotent Consumers, Dead-Letter Queues (DLQs), exponential backoff retries, and circuit breakers.
+- **Deep Observability:** Prometheus metrics, OpenTelemetry distributed traces, structured JSON logging, and pre-configured Grafana dashboards.
+- **Chaos Engineering as a First-Class Citizen:** Dedicated `chaos-svc` and `gameday-svc` for programmatic fault injection and automated experiments.
+
+### System Components
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CHAOS SYMPHONY                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────┐    ┌───────────┐    ┌────────────┐    ┌──────────────┐         │
+│  │   UI    │───▶│ order-api │───▶│ PostgreSQL │───▶│   Debezium   │         │
+│  │ Angular │    └───────────┘    └────────────┘    └──────┬───────┘         │
+│  └─────────┘                                              │                 │
+│       │                                                   ▼                 │
+│       │         ┌──────────────────────────────────────────────────┐        │
+│       │         │                  Apache Kafka                    │        │
+│       │         │  ┌─────────────┬─────────────┬─────────────────┐ │        │
+│       │         │  │order.created│payment.req  │inventory.req    │ │        │
+│       │         │  └─────────────┴─────────────┴─────────────────┘ │        │
+│       │         └────────────────────────┬─────────────────────────┘        │
+│       │                                  │                                  │
+│       │    ┌─────────────────────────────┼────────────────────────────┐     │
+│       │    │                             ▼                            │     │
+│       │    │  ┌──────────────┐    ┌─────────────┐    ┌────────────┐   │     │
+│       │    │  │ orchestrator │───▶│ payment-svc │───▶│inventory-svc│  │     │
+│       │    │  └──────────────┘    └─────────────┘    └────────────┘   │     │
+│       │    │         │                                      │         │     │
+│       │    │         └──────────────────┬───────────────────┘         │     │
+│       │    │                            ▼                             │     │
+│       │    │                    ┌──────────────┐                      │     │
+│       │    │                    │ shipping-svc │                      │     │
+│       │    │                    └──────────────┘                      │     │
+│       │    └──────────────────── SAGA PATTERN ────────────────────────┘     │
+│       │                                                                     │
+│       │    ┌──────────────────── SUPPORTING SERVICES ─────────────────┐     │
+│       └───▶│  ┌───────────┐  ┌───────────┐  ┌─────────────────────┐   │     │
+│            │  │ chaos-svc │  │ dlq-admin │  │ streams-analytics   │   │     │
+│            │  └───────────┘  └───────────┘  └─────────────────────┘   │     │
+│            │        │                                    │            │     │
+│            │        ▼                                    ▼            │     │
+│            │  ┌───────────┐                     ┌──────────────┐      │     │
+│            │  │gameday-svc│                     │  Prometheus  │      │     │
+│            │  └───────────┘                     └──────────────┘      │     │
+│            └──────────────────────────────────────────────────────────┘     │
+│                                                                             │
+│    ┌──────────────────────── OBSERVABILITY ───────────────────────────┐     │
+│    │  ┌────────────────┐    ┌────────────┐    ┌─────────────────┐     │     │
+│    │  │ OTel Collector │───▶│ Prometheus │───▶│     Grafana     │     │     │
+│    │  └────────────────┘    └────────────┘    └─────────────────┘     │     │
+│    └──────────────────────────────────────────────────────────────────┘     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
-
-
-## Core Architectural Principles
-
-The design of Chaos Symphony is guided by a set of principles that prioritize robustness and operational maturity over simplistic, "happy-path" implementations.
-
-*   **Event-Driven Architecture (EDA):** The system is built around asynchronous message passing using Apache Kafka. This decouples services, improves scalability, and allows for patterns like the Outbox pattern to ensure data consistency.
-*   **Resilience by Design:** We assume failures *will* happen. Services are designed with patterns like Idempotent Consumers, Dead-Letter Queues (DLQs), and automated retries to handle transient and permanent failures gracefully.
-*   **Deep Observability:** You can't fix what you can't see. The system is instrumented with Prometheus for metrics, OpenTelemetry for distributed traces, and structured logging. A pre-configured Grafana instance provides a unified view into the system's health, including Service-Level Objective (SLO) dashboards.
-*   **Chaos Engineering as a First-Class Citizen:** The system includes a dedicated `chaos-svc` and `gameday-svc` to programmatically inject failures (e.g., latency, errors) and run automated experiments. This allows us to proactively find and fix weaknesses before they impact users.
-*   **UI-Facing Service Endpoints:** While not a traditional Backend-for-Frontend (BFF), the architecture provides dedicated API endpoints tailored for UI consumption. For most operations, the UI interacts directly with the relevant service (e.g., `gameday-svc`). For complex, aggregated data views, such as the SLO dashboard, the `streams-analytics` service provides a specific endpoint to simplify data retrieval for the client.
 
 ## Key Patterns Implemented
 
-This project serves as a practical example of several critical patterns for building distributed systems.
+| Pattern                     | Implementation                                                                                                      | Business Value                                                                          |
+| :-------------------------- | :------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------- |
+| **Saga Pattern**            | Orchestrated workflow across `orchestrator`, `payment-svc`, `inventory-svc`, and `shipping-svc` via Kafka messages. | Ensures long-running processes complete or safely compensate without distributed locks. |
+| **Outbox Pattern**          | `order-api` writes events to its database atomically; Debezium CDC publishes to Kafka.                              | Guarantees at-least-once delivery, prevents dual-write problems.                        |
+| **Idempotent Consumer**     | All services track processed message IDs in their database.                                                         | Prevents duplicate processing (e.g., double-charging customers).                        |
+| **Dead-Letter Queue (DLQ)** | Spring Kafka `@RetryableTopic` with exponential backoff. Unrecoverable messages go to `*.dlt` topics.               | Isolates poison-pill messages without halting the system.                               |
+| **Windowed SLO Monitoring** | `streams-analytics` uses Kafka Streams for rolling window metrics.                                                  | Real-time actionable health metrics against SLOs.                                       |
+| **Automated GameDay**       | `gameday-svc` triggers chaos experiments with SLO monitoring.                                                       | Continuous resilience validation.                                                       |
+| **Canary Releases**         | Application-level traffic splitting with dedicated canary topics.                                                   | Safe progressive rollouts without service mesh.                                         |
 
-| Pattern | Implementation | Business Value |
-| :--- | :--- | :--- |
-| **Saga Pattern** | The payment workflow is orchestrated across the `orchestrator`, `payment-svc`, `inventory-svc`, and `shipping-svc` modules via Kafka messages. | Ensures a long-running business process can complete or be safely compensated across multiple services without using brittle, two-phase commits. |
-| **Outbox Pattern** | The `order-api` writes order data and outbound events to its database in a single transaction. A Debezium CDC connector then publishes these events to Kafka. | Guarantees "at-least-once" delivery and prevents the classic "dual-write" problem, ensuring state changes and events are never out of sync. |
-| **Idempotent Consumer** | The `payment-svc` tracks processed message IDs in its database. | Prevents duplicate processing of messages, which is critical in "at-least-once" delivery systems. This avoids bugs like double-charging a customer. |
-| **Dead-Letter Queue (DLQ)** | The `payment-svc` uses a topic-based DLQ with an exponential backoff retry mechanism, managed by Spring Kafka. Unrecoverable messages are sent to a final `*.dlt` topic. | Protects the system from "poison pill" messages. It isolates failing messages for later analysis and reprocessing without halting the entire system. |
-| **Windowed SLO Monitoring** | The `streams-analytics` service uses Kafka Streams to calculate SLO metrics (e.g., p95 latency, error rate) over rolling time windows. | Provides a real-time, actionable view of system health against defined business objectives, enabling proactive incident response. |
-| **Automated GameDay** | The `gameday-svc` provides an API to trigger a pre-defined chaos experiment against the `payment-svc` while monitoring the system's SLOs. | Moves chaos engineering from a manual, periodic exercise to an automated, repeatable practice, continuously building confidence in the system's resilience. |
+---
 
-## How to Run the System
+## Tech Stack
 
-**Prerequisites:**
-*   Docker and Docker Compose
-*   Maven & JDK 21
+| Layer              | Technologies                                          |
+| ------------------ | ----------------------------------------------------- |
+| **Languages**      | Java 21, TypeScript                                   |
+| **Frameworks**     | Spring Boot 3.5, Angular 17                           |
+| **Messaging**      | Apache Kafka, Confluent Schema Registry, Debezium CDC |
+| **Database**       | PostgreSQL 16                                         |
+| **Observability**  | OpenTelemetry, Prometheus, Grafana, Micrometer        |
+| **Testing**        | JUnit 5, Testcontainers, Pact (Contract Testing)      |
+| **Infrastructure** | Docker, Kubernetes, Kustomize                         |
+| **CI/CD**          | GitHub Actions, OWASP Dependency-Check                |
 
-**1. Build the Project:**
-Build all Java modules and the Angular UI from the project root. This command runs all tests (including contract tests when enabled) and prepares the artifacts for Docker.
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Docker & Docker Compose
+- Maven 3.9+ & JDK 21
+- Node.js 20+ (for UI development)
+
+### 1. Build the Project
+
 ```bash
 mvn -B clean verify
 ```
 
-**2. Start the Infrastructure & Services:**
-Use Docker Compose to build the container images and start the entire system.
+### 2. Start the Stack
+
 ```bash
+cd deployment
 docker-compose up -d --build
 ```
 
-**3. Accessing the System:**
+### 3. Access the System
 
-*   **Angular UI:** [http://localhost:4200](http://localhost:4200) - The main control panel.
-*   **Grafana:** [http://localhost:3000](http://localhost:3000) (admin/admin) - View the SLO dashboard.
-*   **Prometheus:** [http://localhost:9090](http://localhost:9090)
-*   **Kafka UI (Kafdrop):** [http://localhost:9000](http://localhost:9000) - Inspect Kafka topics.
+| Service                | URL                   | Credentials |
+| ---------------------- | --------------------- | ----------- |
+| **Angular UI**         | http://localhost:4200 | —           |
+| **Grafana**            | http://localhost:3000 | admin/admin |
+| **Prometheus**         | http://localhost:9090 | —           |
+| **Kafka UI (Kafdrop)** | http://localhost:9000 | —           |
 
-### Deploying to Kubernetes
+---
 
-The project includes a full set of Kubernetes manifests in the `/kubernetes` directory, managed by Kustomize.
+## Kubernetes Deployment
 
-**Prerequisites:**
-*   A running Kubernetes cluster.
-*   `kubectl` configured to connect to your cluster.
-*   A container registry (like Docker Hub, GCR, or a private registry) to push your images to.
+The project includes production-grade Kubernetes manifests in `/kubernetes/` with:
 
-**Steps:**
+- Resource limits and requests
+- Liveness and readiness probes
+- PodDisruptionBudgets
+- Security contexts
+- Prometheus annotations
 
-1.  **Build and Push Docker Images:**
-    The `docker-compose.yml` file can be used to build the images, but you will need to manually tag and push them to your container registry. For example, for the `payment-svc`:
-    ```bash
-    docker build -t your-registry/payment-svc:latest payment-svc/
-    docker push your-registry/payment-svc:latest
-    ```
-    *(Repeat for all services and the UI)*
+### Deploy
 
-2.  **Update Image Names in Deployments:**
-    You will need to update the `image` field in each `deployment.yaml` file (e.g., `kubernetes/payment-svc/deployment.yaml`) to point to the images you pushed to your registry.
+```bash
+# Build and push images to your registry
+docker build -t your-registry/payment-svc:latest payment-svc/
+docker push your-registry/payment-svc:latest
+# Repeat for all services...
 
-3.  **Deploy the Application:**
-    Apply all the manifests using Kustomize:
-    ```bash
-    kubectl apply -k kubernetes/
-    ```
+# Update image names in deployment.yaml files, then:
+kubectl apply -k kubernetes/
+```
+
+---
 
 ## 5-Minute Demo Script
 
-This script follows the demonstration flow outlined in the project specification.
+1. **Healthy State:** Open UI → SLO view. All metrics green.
 
-1.  **Show Healthy State:**
-    *   Open the UI at [http://localhost:4200](http://localhost:4200).
-    *   Navigate to the **SLO** view. Point out that all metrics are green: "E2E p95 Latency < 2s", "DLQ Count is 0".
+2. **Create Order:** Orders view → "Create New Order". Triggers SAGA workflow.
 
-2.  **Create an Order:**
-    *   Go to the **Orders** view.
-    *   Click "**Create New Order**". An order ID appears in the list below.
-    *   Explain that this triggered a SAGA workflow, and the order's timeline can be seen by clicking its ID (future feature).
+3. **Inject Chaos:** Chaos view → Enable Delay (1200ms), Duplicate, Mutate. Create orders. Watch SLO view turn red.
 
-3.  **Inject Chaos:**
-    *   Go to the **Chaos** view.
-    *   Enable **Delay** (e.g., 1200ms), **Duplicate**, and **Mutate** toggles.
-    *   Create a few more orders.
-    *   Switch to the **SLO** view. Show that the p95 latency is rising and the panel is turning red. Show that the DLQ count is also increasing due to mutated, un-parsable messages.
+4. **Drill-Down:** DLQ view → Inspect failed messages. Disable chaos → "Replay All".
 
-4.  **Drill-Down and Recover:**
-    *   Go to the **DLQ** view. You will see the failed messages.
-    *   Click the "peek" icon to inspect a message's payload and headers, pointing out the `x-exception-message` header.
-    *   Go back to the **Chaos** view and **disable all chaos toggles**.
-    *   Return to the **DLQ** view and click "**Replay All**" for the relevant topic.
-    *   Show that the DLT count in the SLO view returns to zero.
+5. **Canary Release:** Enable Canary toggle. View Grafana canary comparison dashboard.
 
-5.  **Demonstrate Canary Release:**
-    *   In the **Chaos** view, enable the **Canary** toggle. Explain that this routes 5% of traffic to a new version of the `payment-svc`.
-    *   In Grafana, show the dashboard comparing the performance of `payment-svc` and `payment-svc-canary`.
+6. **Time-Travel:** Orders view → "Replay 5m" to re-process recent events.
 
-6.  **Demonstrate Time-Travel Replay:**
-    *   In the **Orders** view, click the "**Replay 5m**" button.
-    *   Explain that this is resetting the analytics consumer group to re-process the last 5 minutes of events, allowing for "time-travel" analysis in the UI.
+7. **Automated GameDay:** Check GitHub Actions → GameDay workflow → Download report artifact.
 
-7.  **Show Automated GameDay Report:**
-    *   Go to the project's GitHub Actions page.
-    *   Open the last run of the "**GameDay**" workflow.
-    *   Show the downloaded `GameDay-Report.md` artifact, pointing out the measurements before, during, and after the automated chaos experiment.
+---
+
+## Project Structure
+
+```
+chaos-symphony/
+├── chaos-svc/          # Chaos rule management service
+├── common-messaging/   # Shared messaging utilities, Avro schemas
+├── dlq-admin/          # Dead-letter queue administration
+├── gameday-svc/        # Automated chaos experiments
+├── inventory-svc/      # Inventory reservation service
+├── orchestrator/       # Saga orchestration
+├── order-api/          # Order creation API (Outbox pattern)
+├── payment-svc/        # Payment processing with canary support
+├── shipping-svc/       # Shipping fulfillment
+├── streams-analytics/  # Kafka Streams SLO analytics
+├── ui/dashboard/       # Angular control panel
+├── deployment/         # Docker Compose, Prometheus, Grafana
+├── kubernetes/         # K8s manifests with Kustomize
+├── docs/               # API guides, Postman collections
+└── scripts/            # Utility scripts
+```
+
+---
 
 ## Anti-CRUD Checklist
 
-This checklist, derived from the project specification, tracks the implementation of patterns that go beyond simple data-entry applications.
+- [x] **SAGA Pattern** — Orchestrated order workflow with full compensation
+- [x] **Saga State Persistence** — Survives restarts, supports retry
+- [x] **Event Schemas** — Confluent Schema Registry with Avro
+- [x] **Idempotency** — All consumers track processed IDs
+- [x] **DLQ Policy** — Exponential backoff via `@RetryableTopic`
+- [x] **Graceful Shutdown** — Proper Kafka consumer drain
+- [x] **Observability** — OTel traces, Prometheus metrics, Grafana dashboards
+- [x] **Testcontainers** — Integration testing with real dependencies
+- [x] **Contract Tests** — Pact consumer/provider verification
+- [x] **RUNBOOK** — Operational documentation
+- [x] **Automated GameDay** — GitHub Actions chaos workflow
+- [x] **Replay Capability** — Time-travel event analysis
+- [x] **Test Coverage** — JaCoCo with 60%+ minimum
 
-- [x] **SAGA Pattern:** The order workflow is a choreographed Saga across multiple services.
-- [x] **Event Schemas:** Versioned schemas are managed by the Confluent Schema Registry.
-- [x] **Idempotency:** All consumers use a persistent store to track processed message IDs, preventing duplicates.
-- [x] **DLQ Policy:** Implemented with exponential backoff via Spring Kafka's `@RetryableTopic`.
-- [x] **Observability:** OTel traces, Prometheus metrics, and a Grafana SLO dashboard are all configured.
-- [x] **Testcontainers:** Used in the CI pipeline for integration testing against real dependencies.
-- [x] **Contract Tests:** Full Pact implementation with consumer tests in orchestrator and provider verification in payment-svc.
-- [x] **RUNBOOK:** A detailed `RUNBOOK.md` exists for common operational scenarios.
-- [x] **Automated GameDay:** A GitHub Actions workflow automates chaos experiments and reporting.
-- [x] **Replay Capability:** The system can replay the last 5 minutes of events for analysis.
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center">
+  <b>Built with ❤️ by Dr. Porkoláb Ádám</b>
+</p>

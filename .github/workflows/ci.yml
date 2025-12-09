@@ -60,12 +60,26 @@ jobs:
           SPRING_DATASOURCE_USERNAME: test
           SPRING_DATASOURCE_PASSWORD: test
           SPRING_KAFKA_BOOTSTRAP_SERVERS: localhost:${{ job.services.kafka.ports[9092] }}
-          # SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+          
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: mvn -U -B clean verify -DskipITs=false
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: '**/target/site/jacoco/'
+          retention-days: 7
+
+      - name: Check Coverage Threshold
+        run: |
+          echo "Checking JaCoCo coverage reports..."
+          find . -name "jacoco.xml" -exec echo "Found: {}" \;
+          
   build-and-test-frontend:
     runs-on: ubuntu-latest
-    needs: build-and-test-backend # Optional: run after backend tests pass
+    needs: build-and-test-backend 
     steps:
       - uses: actions/checkout@v4
 

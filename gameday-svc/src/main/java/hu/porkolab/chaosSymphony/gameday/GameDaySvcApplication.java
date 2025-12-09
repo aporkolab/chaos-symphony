@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
 @EnableAsync
+
 public class GameDaySvcApplication {
 
     public static void main(String[] args) {

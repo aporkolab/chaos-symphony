@@ -2,6 +2,8 @@ server:
   port: 8091
 
 spring:
+  application:
+    name: orchestrator
   datasource:
     url: jdbc:h2:mem:orchestrator;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
     driver-class-name: org.h2.Driver
@@ -9,6 +11,9 @@ spring:
     password:
   jpa:
     hibernate.ddl-auto: none
+  sql:
+    init:
+      mode: always
   kafka:
     bootstrap-servers: 127.0.0.1:29092
     listener:
@@ -29,11 +34,11 @@ logging:
     org.springframework.kafka: INFO
     hu.porkolab.chaosSymphony: DEBUG
 
-# ----- default (dev) -----
+
 chaos:
   retry:
     strategy: exponential
-    max-attempts: 4            # 1 feldolgozás + 3 retry
+    max-attempts: 4            
     initial-interval-ms: 300
     multiplier: 2.0
     max-interval-ms: 5000

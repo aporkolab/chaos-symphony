@@ -12,6 +12,7 @@ import java.util.Properties;
 
 @SpringBootApplication
 @EnableScheduling
+
 public class StreamsAnalyticsApplication {
 
     public static void main(String[] args) {

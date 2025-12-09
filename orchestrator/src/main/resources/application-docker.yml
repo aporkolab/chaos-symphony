@@ -12,3 +12,13 @@ spring:
     url: jdbc:postgresql://postgres:5432/orders
     username: app
     password: app
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  sql:
+    init:
+      mode: always

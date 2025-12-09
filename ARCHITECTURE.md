@@ -1,5 +1,7 @@
 # Chaos Symphony - System Architecture
 
+> **Author:** Dr. Porkoláb Ádám
+
 This document provides a high-level overview of the Chaos Symphony system architecture, its components, and their interactions.
 
 ## 1. Core Philosophy
@@ -128,7 +130,7 @@ sequenceDiagram
 
 ## 4. Key Architectural Decisions (ADRs)
 
-*   **ADR-0001: Saga Pattern for Long-Running Transactions:** We chose the Saga pattern (choreography-based) over two-phase commits to ensure service decoupling and scalability. This avoids distributed locks but requires careful handling of compensation logic.
+*   **ADR-0001: Saga Pattern for Long-Running Transactions:** We chose the Saga pattern (orchestration-based) over two-phase commits to ensure service decoupling and scalability. This avoids distributed locks but requires careful handling of compensation logic.
 *   **ADR-0002: Transactional Outbox for Event Publishing:** To guarantee that events are published if and only if the business transaction commits, we use the Outbox pattern with Debezium for Change Data Capture (CDC). This prevents data loss and inconsistency between the service's database and the message broker.
 *   **ADR-0003: Centralized Chaos Configuration:** Instead of embedding chaos logic in each service, a central `chaos-svc` provides a dynamic, API-driven way to manage fault injection. This allows for system-wide experiments without redeploying services.
 *   **ADR-0004: BFF for UI Metrics:** The `streams-analytics` service acts as a Backend-for-Frontend for the SLO dashboard, aggregating multiple Prometheus queries into a single, efficient API call for the UI.
@@ -137,6 +139,11 @@ sequenceDiagram
     *   **Canary Consumer (`payment-svc-canary`):** A second instance of the `payment-svc` is run with a `canary` Spring profile. This profile configures the service to listen only to the `payment.requested.canary` topic with a unique consumer group ID.
     *   **Dynamic Control (`chaos-svc`):** A REST endpoint on this service allows dynamically updating the `canary.payment.percentage` property in the `orchestrator` via its Actuator endpoint. This enables turning the canary on or off and adjusting the traffic percentage at runtime without a restart.
     *   **Limitation:** This approach manages message routing at the application layer. It does not provide true HTTP-level traffic splitting for synchronous calls, which would require an API Gateway or a service mesh (like Istio or Linkerd). For this event-driven system, however, it is a powerful and sufficient pattern.
+*   **ADR-0006: Persistent Saga State for Compensation:** Saga state is persisted in the orchestrator's database to enable:
+    *   Recovery from service restarts during compensation
+    *   Retry of stuck compensations via scheduled job
+    *   Audit trail of saga lifecycle
+    *   Metrics on compensation rates
 
 ## 5. Deployment - Kubernetes & Canary
 
