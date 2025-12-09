@@ -1,14 +1,13 @@
 package hu.porkolab.chaosSymphony.common.kafka;
 
-import java.util.concurrent.TimeUnit;
-
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PreDestroy;
+import java.util.concurrent.TimeUnit;
 
 
 @Component
@@ -29,7 +28,7 @@ public class KafkaGracefulShutdown {
         log.info("Initiating graceful shutdown of Kafka consumers...");
 
         var containers = kafkaListenerEndpointRegistry.getAllListenerContainers();
-
+        
         if (containers.isEmpty()) {
             log.info("No Kafka listener containers to stop");
             return;
@@ -39,7 +38,7 @@ public class KafkaGracefulShutdown {
 
         for (MessageListenerContainer container : containers) {
             String listenerId = container.getListenerId();
-
+            
             if (container.isRunning()) {
                 log.info("Stopping Kafka listener: {}", listenerId);
                 container.stop(() -> log.info("Kafka listener {} stopped successfully", listenerId));
@@ -50,10 +49,10 @@ public class KafkaGracefulShutdown {
 
         
         long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(SHUTDOWN_TIMEOUT_SECONDS);
-
+        
         for (MessageListenerContainer container : containers) {
             long remainingTime = deadline - System.currentTimeMillis();
-
+            
             if (remainingTime <= 0) {
                 log.warn("Shutdown timeout exceeded, forcing stop");
                 break;
@@ -61,7 +60,7 @@ public class KafkaGracefulShutdown {
 
             if (container.isRunning()) {
                 try {
-                    log.debug("Waiting for container {} to stop ({}ms remaining)",
+                    log.debug("Waiting for container {} to stop ({}ms remaining)", 
                             container.getListenerId(), remainingTime);
                     Thread.sleep(Math.min(100, remainingTime));
                 } catch (InterruptedException e) {
@@ -74,7 +73,7 @@ public class KafkaGracefulShutdown {
 
         
         long runningCount = containers.stream().filter(MessageListenerContainer::isRunning).count();
-
+        
         if (runningCount > 0) {
             log.warn("Graceful shutdown completed with {} container(s) still running", runningCount);
         } else {

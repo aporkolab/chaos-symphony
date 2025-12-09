@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JdbcIdempotencyStore implements IdempotencyStore {
-
+    
     private static final Logger log = LoggerFactory.getLogger(JdbcIdempotencyStore.class);
-
+    
     private final JdbcTemplate jdbc;
 
     public JdbcIdempotencyStore(JdbcTemplate jdbc) {
@@ -20,7 +20,6 @@ public class JdbcIdempotencyStore implements IdempotencyStore {
     @Override
     public boolean markIfFirst(String eventId) {
         try {
-            
             
             int rows = jdbc.update("INSERT INTO idempotency_event(event_id) VALUES (?)", eventId);
             if (rows == 1) {

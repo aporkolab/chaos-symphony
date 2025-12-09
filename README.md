@@ -1,4 +1,4 @@
-# Chaos Symphony v.1.3.0
+# Chaos Symphony
 
 [![CI Build and Test](https://github.com/APorkolab/chaos-symphony/actions/workflows/ci.yml/badge.svg)](https://github.com/APorkolab/chaos-symphony/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -13,42 +13,31 @@
 
 **Chaos Symphony** is a production-grade, event-driven microservices platform designed to demonstrate and teach advanced software engineering patterns. It simulates an order processing workflow with a focus on **resilience**, **observability**, and **chaos engineering** to ensure the system can withstand real-world failures.
 
-This project is not just a demo—it's a hands-on laboratory. Built to be broken, observed, and improved. The core philosophy: _a system's true strength is revealed not when it's running perfectly, but when it's gracefully handling failures._
+This project is not just a demo—it's a hands-on laboratory. Built to be broken, observed, and improved. The core philosophy: *a system's true strength is revealed not when it's running perfectly, but when it's gracefully handling failures.*
 
 ---
 
 ## Table of Contents
 
-- [Chaos Symphony v.1.3.0](#chaos-symphony-v130)
-  - [Table of Contents](#table-of-contents)
-  - [Service Level Objectives (SLOs)](#service-level-objectives-slos)
-  - [Architecture Overview](#architecture-overview)
-    - [Core Principles](#core-principles)
-    - [System Components](#system-components)
-  - [Key Patterns Implemented](#key-patterns-implemented)
-  - [Tech Stack](#tech-stack)
-  - [Quick Start](#quick-start)
-    - [Prerequisites](#prerequisites)
-    - [1. Build the Project](#1-build-the-project)
-    - [2. Start the Stack](#2-start-the-stack)
-    - [3. Access the System](#3-access-the-system)
-  - [Kubernetes Deployment](#kubernetes-deployment)
-    - [Deploy](#deploy)
-  - [5-Minute Demo Script](#5-minute-demo-script)
-  - [Project Structure](#project-structure)
-  - [Anti-CRUD Checklist](#anti-crud-checklist)
-  - [Contributing](#contributing)
-  - [License](#license)
+- [Service Level Objectives](#service-level-objectives-slos)
+- [Architecture Overview](#architecture-overview)
+- [Key Patterns Implemented](#key-patterns-implemented)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Kubernetes Deployment](#kubernetes-deployment)
+- [Demo Script](#5-minute-demo-script)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
 
 ---
 
 ## Service Level Objectives (SLOs)
 
-| Service Level Indicator (SLI) | Objective (per day)                             |
-| :---------------------------- | :---------------------------------------------- |
-| **End-to-End Latency**        | `p95(order_processing_time) < 2000ms`           |
-| **Availability**              | `successful_requests / total_requests >= 99.5%` |
-| **Data Integrity**            | `dlt_messages_total < 0.3% of total messages`   |
+| Service Level Indicator (SLI) | Objective (per day) |
+| :--- | :--- |
+| **End-to-End Latency** | `p95(order_processing_time) < 2000ms` |
+| **Availability** | `successful_requests / total_requests >= 99.5%` |
+| **Data Integrity** | `dlt_messages_total < 0.3% of total messages` |
 
 ---
 
@@ -65,51 +54,51 @@ This project is not just a demo—it's a hands-on laboratory. Built to be broken
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CHAOS SYMPHONY                                 │
+│                              CHAOS SYMPHONY                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────┐    ┌───────────┐    ┌────────────┐    ┌──────────────┐         │
-│  │   UI    │───▶│ order-api │───▶│ PostgreSQL │───▶│   Debezium   │         │
-│  │ Angular │    └───────────┘    └────────────┘    └──────┬───────┘         │
-│  └─────────┘                                              │                 │
-│       │                                                   ▼                 │
-│       │         ┌──────────────────────────────────────────────────┐        │
-│       │         │                  Apache Kafka                    │        │
-│       │         │  ┌─────────────┬─────────────┬─────────────────┐ │        │
-│       │         │  │order.created│payment.req  │inventory.req    │ │        │
-│       │         │  └─────────────┴─────────────┴─────────────────┘ │        │
-│       │         └────────────────────────┬─────────────────────────┘        │
-│       │                                  │                                  │
-│       │    ┌─────────────────────────────┼────────────────────────────┐     │
-│       │    │                             ▼                            │     │
-│       │    │  ┌──────────────┐    ┌─────────────┐    ┌────────────┐   │     │
-│       │    │  │ orchestrator │───▶│ payment-svc │───▶│inventory-svc│  │     │
-│       │    │  └──────────────┘    └─────────────┘    └────────────┘   │     │
-│       │    │         │                                      │         │     │
-│       │    │         └──────────────────┬───────────────────┘         │     │
-│       │    │                            ▼                             │     │
-│       │    │                    ┌──────────────┐                      │     │
-│       │    │                    │ shipping-svc │                      │     │
-│       │    │                    └──────────────┘                      │     │
-│       │    └──────────────────── SAGA PATTERN ────────────────────────┘     │
-│       │                                                                     │
-│       │    ┌──────────────────── SUPPORTING SERVICES ─────────────────┐     │
-│       └───▶│  ┌───────────┐  ┌───────────┐  ┌─────────────────────┐   │     │
-│            │  │ chaos-svc │  │ dlq-admin │  │ streams-analytics   │   │     │
-│            │  └───────────┘  └───────────┘  └─────────────────────┘   │     │
-│            │        │                                    │            │     │
-│            │        ▼                                    ▼            │     │
-│            │  ┌───────────┐                     ┌──────────────┐      │     │
-│            │  │gameday-svc│                     │  Prometheus  │      │     │
-│            │  └───────────┘                     └──────────────┘      │     │
-│            └──────────────────────────────────────────────────────────┘     │
-│                                                                             │
-│    ┌──────────────────────── OBSERVABILITY ───────────────────────────┐     │
-│    │  ┌────────────────┐    ┌────────────┐    ┌─────────────────┐     │     │
-│    │  │ OTel Collector │───▶│ Prometheus │───▶│     Grafana     │     │     │
-│    │  └────────────────┘    └────────────┘    └─────────────────┘     │     │
-│    └──────────────────────────────────────────────────────────────────┘     │
-│                                                                             │
+│                                                                               │
+│  ┌─────────┐    ┌───────────┐    ┌────────────┐    ┌──────────────┐          │
+│  │   UI    │───▶│ order-api │───▶│ PostgreSQL │───▶│   Debezium   │          │
+│  │ Angular │    └───────────┘    └────────────┘    └──────┬───────┘          │
+│  └─────────┘                                              │                   │
+│       │                                                   ▼                   │
+│       │         ┌──────────────────────────────────────────────────┐          │
+│       │         │                  Apache Kafka                      │          │
+│       │         │  ┌─────────────┬─────────────┬─────────────────┐  │          │
+│       │         │  │order.created│payment.req  │inventory.req    │  │          │
+│       │         │  └─────────────┴─────────────┴─────────────────┘  │          │
+│       │         └────────────────────────┬──────────────────────────┘          │
+│       │                                  │                                     │
+│       │    ┌─────────────────────────────┼─────────────────────────────┐       │
+│       │    │                             ▼                             │       │
+│       │    │  ┌──────────────┐    ┌─────────────┐    ┌────────────┐   │       │
+│       │    │  │ orchestrator │───▶│ payment-svc │───▶│inventory-svc│   │       │
+│       │    │  └──────────────┘    └─────────────┘    └────────────┘   │       │
+│       │    │         │                                      │         │       │
+│       │    │         └──────────────────┬───────────────────┘         │       │
+│       │    │                            ▼                             │       │
+│       │    │                    ┌──────────────┐                      │       │
+│       │    │                    │ shipping-svc │                      │       │
+│       │    │                    └──────────────┘                      │       │
+│       │    └──────────────────── SAGA PATTERN ────────────────────────┘       │
+│       │                                                                       │
+│       │    ┌──────────────────── SUPPORTING SERVICES ─────────────────┐       │
+│       └───▶│  ┌───────────┐  ┌───────────┐  ┌─────────────────────┐   │       │
+│            │  │ chaos-svc │  │ dlq-admin │  │ streams-analytics   │   │       │
+│            │  └───────────┘  └───────────┘  └─────────────────────┘   │       │
+│            │        │                                    │            │       │
+│            │        ▼                                    ▼            │       │
+│            │  ┌───────────┐                     ┌──────────────┐      │       │
+│            │  │gameday-svc│                     │  Prometheus  │      │       │
+│            │  └───────────┘                     └──────────────┘      │       │
+│            └──────────────────────────────────────────────────────────┘       │
+│                                                                               │
+│    ┌──────────────────────── OBSERVABILITY ───────────────────────────┐       │
+│    │  ┌────────────────┐    ┌────────────┐    ┌─────────────────┐     │       │
+│    │  │ OTel Collector │───▶│ Prometheus │───▶│     Grafana     │     │       │
+│    │  └────────────────┘    └────────────┘    └─────────────────┘     │       │
+│    └──────────────────────────────────────────────────────────────────┘       │
+│                                                                               │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -117,30 +106,30 @@ This project is not just a demo—it's a hands-on laboratory. Built to be broken
 
 ## Key Patterns Implemented
 
-| Pattern                     | Implementation                                                                                                      | Business Value                                                                          |
-| :-------------------------- | :------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------- |
-| **Saga Pattern**            | Orchestrated workflow across `orchestrator`, `payment-svc`, `inventory-svc`, and `shipping-svc` via Kafka messages. | Ensures long-running processes complete or safely compensate without distributed locks. |
-| **Outbox Pattern**          | `order-api` writes events to its database atomically; Debezium CDC publishes to Kafka.                              | Guarantees at-least-once delivery, prevents dual-write problems.                        |
-| **Idempotent Consumer**     | All services track processed message IDs in their database.                                                         | Prevents duplicate processing (e.g., double-charging customers).                        |
-| **Dead-Letter Queue (DLQ)** | Spring Kafka `@RetryableTopic` with exponential backoff. Unrecoverable messages go to `*.dlt` topics.               | Isolates poison-pill messages without halting the system.                               |
-| **Windowed SLO Monitoring** | `streams-analytics` uses Kafka Streams for rolling window metrics.                                                  | Real-time actionable health metrics against SLOs.                                       |
-| **Automated GameDay**       | `gameday-svc` triggers chaos experiments with SLO monitoring.                                                       | Continuous resilience validation.                                                       |
-| **Canary Releases**         | Application-level traffic splitting with dedicated canary topics.                                                   | Safe progressive rollouts without service mesh.                                         |
+| Pattern | Implementation | Business Value |
+| :--- | :--- | :--- |
+| **Saga Pattern** | Orchestrated workflow across `orchestrator`, `payment-svc`, `inventory-svc`, and `shipping-svc` via Kafka messages. | Ensures long-running processes complete or safely compensate without distributed locks. |
+| **Outbox Pattern** | `order-api` writes events to its database atomically; Debezium CDC publishes to Kafka. | Guarantees at-least-once delivery, prevents dual-write problems. |
+| **Idempotent Consumer** | All services track processed message IDs in their database. | Prevents duplicate processing (e.g., double-charging customers). |
+| **Dead-Letter Queue (DLQ)** | Spring Kafka `@RetryableTopic` with exponential backoff. Unrecoverable messages go to `*.dlt` topics. | Isolates poison-pill messages without halting the system. |
+| **Windowed SLO Monitoring** | `streams-analytics` uses Kafka Streams for rolling window metrics. | Real-time actionable health metrics against SLOs. |
+| **Automated GameDay** | `gameday-svc` triggers chaos experiments with SLO monitoring. | Continuous resilience validation. |
+| **Canary Releases** | Application-level traffic splitting with dedicated canary topics. | Safe progressive rollouts without service mesh. |
 
 ---
 
 ## Tech Stack
 
-| Layer              | Technologies                                          |
-| ------------------ | ----------------------------------------------------- |
-| **Languages**      | Java 21, TypeScript                                   |
-| **Frameworks**     | Spring Boot 3.5, Angular 17                           |
-| **Messaging**      | Apache Kafka, Confluent Schema Registry, Debezium CDC |
-| **Database**       | PostgreSQL 16                                         |
-| **Observability**  | OpenTelemetry, Prometheus, Grafana, Micrometer        |
-| **Testing**        | JUnit 5, Testcontainers, Pact (Contract Testing)      |
-| **Infrastructure** | Docker, Kubernetes, Kustomize                         |
-| **CI/CD**          | GitHub Actions, OWASP Dependency-Check                |
+| Layer | Technologies |
+|-------|-------------|
+| **Languages** | Java 21, TypeScript |
+| **Frameworks** | Spring Boot 3.5, Angular 17 |
+| **Messaging** | Apache Kafka, Confluent Schema Registry, Debezium CDC |
+| **Database** | PostgreSQL 16 |
+| **Observability** | OpenTelemetry, Prometheus, Grafana, Micrometer |
+| **Testing** | JUnit 5, Testcontainers, Pact (Contract Testing) |
+| **Infrastructure** | Docker, Kubernetes, Kustomize |
+| **CI/CD** | GitHub Actions, OWASP Dependency-Check |
 
 ---
 
@@ -167,12 +156,12 @@ docker-compose up -d --build
 
 ### 3. Access the System
 
-| Service                | URL                   | Credentials |
-| ---------------------- | --------------------- | ----------- |
-| **Angular UI**         | http://localhost:4200 | —           |
-| **Grafana**            | http://localhost:3000 | admin/admin |
-| **Prometheus**         | http://localhost:9090 | —           |
-| **Kafka UI (Kafdrop)** | http://localhost:9000 | —           |
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| **Angular UI** | http://localhost:4200 | — |
+| **Grafana** | http://localhost:3000 | admin/admin |
+| **Prometheus** | http://localhost:9090 | — |
+| **Kafka UI (Kafdrop)** | http://localhost:9000 | — |
 
 ---
 

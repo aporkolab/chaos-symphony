@@ -20,41 +20,39 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PaymentResultListener {
 
-	private final ObjectMapper om;
-	private final IdempotencyStore idempotencyStore;
-	private final InventoryRequestProducer inventoryProducer;
-	private final SagaOrchestrator sagaOrchestrator;
-	private final Counter ordersFailed;
+    private final ObjectMapper om;
+    private final IdempotencyStore idempotencyStore;
+    private final InventoryRequestProducer inventoryProducer;
+    private final SagaOrchestrator sagaOrchestrator;
+    private final Counter ordersFailed;
 
-	@KafkaListener(topics = "payment.result", groupId = "orchestrator-payment-result")
-	@Transactional
-	public void onPaymentResult(ConsumerRecord<String, String> rec) throws Exception {
-		if (!idempotencyStore.markIfFirst(rec.key())) {
-			log.warn("Duplicate message detected, skipping: {}", rec.key());
-			return;
-		}
+    @KafkaListener(topics = "payment.result", groupId = "orchestrator-payment-result")
+    @Transactional
+    public void onPaymentResult(ConsumerRecord<String, String> rec) throws Exception {
+        if (!idempotencyStore.markIfFirst(rec.key())) {
+            log.warn("Duplicate message detected, skipping: {}", rec.key());
+            return;
+        }
 
-		EventEnvelope env = EnvelopeHelper.parse(rec.value());
-		JsonNode p = om.readTree(env.getPayload());
-		String status = p.path("status").asText("UNKNOWN");
-		String orderId = p.path("orderId").asText(null);
-		String paymentId = p.path("paymentId").asText(null);
+        EventEnvelope env = EnvelopeHelper.parse(rec.value());
+        JsonNode p = om.readTree(env.getPayload());
+        String status = p.path("status").asText("UNKNOWN");
+        String orderId = p.path("orderId").asText(null);
+        String paymentId = p.path("paymentId").asText(null);
 
-		if ("CHARGED".equalsIgnoreCase(status)) {
-			log.info("Payment successful for orderId={}, requesting inventory reservation.", orderId);
+        if ("CHARGED".equalsIgnoreCase(status)) {
+            log.info("Payment successful for orderId={}, requesting inventory reservation.", orderId);
 
-			
-			sagaOrchestrator.onPaymentCompleted(orderId, paymentId);
+            sagaOrchestrator.onPaymentCompleted(orderId, paymentId);
 
-			ObjectNode payload = om.createObjectNode().put("orderId", orderId);
-			inventoryProducer.sendRequest(orderId, payload.toString());
-		} else {
-			String failureReason = p.path("reason").asText("Payment declined");
-			log.error("Payment failed for orderId={}, reason={}", orderId, failureReason);
-			
-			
-			sagaOrchestrator.onPaymentFailed(orderId, failureReason);
-			ordersFailed.increment();
-		}
-	}
+            ObjectNode payload = om.createObjectNode().put("orderId", orderId);
+            inventoryProducer.sendRequest(orderId, payload.toString());
+        } else {
+            String failureReason = p.path("reason").asText("Payment declined");
+            log.error("Payment failed for orderId={}, reason={}", orderId, failureReason);
+
+            sagaOrchestrator.onPaymentFailed(orderId, failureReason);
+            ordersFailed.increment();
+        }
+    }
 }
