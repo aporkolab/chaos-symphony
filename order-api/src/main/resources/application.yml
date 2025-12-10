@@ -2,11 +2,12 @@ server:
   port: 8080
 
 spring:
+  application:
+    name: order-api
   datasource:
     url: jdbc:postgresql://localhost:5432/orders
     username: app
     password: pass
-    # driver-class-name nem kötelező, de beteheted:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -34,6 +35,14 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer    
 
+
+fraud:
+  velocity:
+    window:
+      minutes: 60
+    max:
+      orders: 5
+
 management:
   server:
     port: 9080
@@ -44,6 +53,7 @@ management:
   metrics:
     tags:
       app: ${spring.application.name}
+
 logging:
   level:
     root: INFO
@@ -51,6 +61,3 @@ logging:
     hu.porkolab.chaosSymphony: DEBUG  
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
-
-
-    

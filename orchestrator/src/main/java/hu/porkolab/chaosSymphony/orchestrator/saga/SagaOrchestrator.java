@@ -190,16 +190,58 @@ public class SagaOrchestrator {
             saga.setRetryCount(saga.getRetryCount() + 1);
             sagaRepository.save(saga);
 
-            String reason = "Retry compensation attempt " + saga.getRetryCount();
             
-            
-            if (saga.getFailureReason() != null && saga.getFailureReason().contains("shipping")) {
-                onShippingFailed(saga.getOrderId(), reason);
-            } else if (saga.getFailureReason() != null && saga.getFailureReason().contains("inventory")) {
-                onInventoryFailed(saga.getOrderId(), reason);
-            } else {
-                onPaymentFailed(saga.getOrderId(), reason);
-            }
+            SagaState.CompensationStrategy strategy = determineCompensationStrategy(saga);
+            executeCompensation(saga, strategy);
         }
+    }
+
+    
+    private SagaState.CompensationStrategy determineCompensationStrategy(SagaInstance saga) {
+        if (saga.getFailedState() != null) {
+            return saga.getFailedState().getCompensationStrategy();
+        }
+
+        
+        if (saga.getShippingId() != null) {
+            return SagaState.CompensationStrategy.FULL_COMPENSATION;
+        } else if (saga.getInventoryReservationId() != null) {
+            return SagaState.CompensationStrategy.REFUND_AND_CANCEL;
+        } else if (saga.getPaymentId() != null) {
+            return SagaState.CompensationStrategy.REFUND_AND_CANCEL;
+        } else {
+            return SagaState.CompensationStrategy.CANCEL_ORDER_ONLY;
+        }
+    }
+
+    
+    private void executeCompensation(SagaInstance saga, SagaState.CompensationStrategy strategy) {
+        String orderId = saga.getOrderId();
+        String reason = "Retry compensation attempt " + saga.getRetryCount();
+
+        log.info("Executing {} compensation for saga {}", strategy, orderId);
+
+        switch (strategy) {
+            case FULL_COMPENSATION -> {
+                if (saga.getInventoryReservationId() != null) {
+                    compensationProducer.requestInventoryRelease(
+                            orderId, saga.getInventoryReservationId(), reason);
+                }
+                if (saga.getPaymentId() != null) {
+                    compensationProducer.requestPaymentRefund(orderId, saga.getPaymentId(), reason);
+                }
+                compensationProducer.requestOrderCancellation(orderId, reason);
+            }
+            case REFUND_AND_CANCEL -> {
+                if (saga.getPaymentId() != null) {
+                    compensationProducer.requestPaymentRefund(orderId, saga.getPaymentId(), reason);
+                }
+                compensationProducer.requestOrderCancellation(orderId, reason);
+            }
+            case CANCEL_ORDER_ONLY -> compensationProducer.requestOrderCancellation(orderId, reason);
+            case NONE -> log.warn("No compensation strategy for saga {}", orderId);
+        }
+
+        compensationsTriggered.increment();
     }
 }

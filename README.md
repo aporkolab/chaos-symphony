@@ -4,22 +4,55 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
+[![Kafka](https://img.shields.io/badge/Kafka-Streams-black.svg)](https://kafka.apache.org/)
 [![Coverage](https://img.shields.io/badge/coverage-60%25+-brightgreen.svg)](https://github.com/APorkolab/chaos-symphony)
 [![Security](https://img.shields.io/badge/security-OAuth2%2FJWT-blue.svg)](https://github.com/APorkolab/chaos-symphony)
 
-> **Author:** Dr. Porkoláb Ádám  
+> **Author:** Dr. Ádám Porkoláb  
 > **Repository:** [github.com/APorkolab/chaos-symphony](https://github.com/APorkolab/chaos-symphony)
 
 ---
 
-**Chaos Symphony** is a production-grade, event-driven microservices platform designed to demonstrate and teach advanced software engineering patterns. It simulates an order processing workflow with a focus on **resilience**, **observability**, and **chaos engineering** to ensure the system can withstand real-world failures.
+**Chaos Symphony** is a production-grade, event-driven microservices platform demonstrating how to build **resilient distributed systems**. It implements an order processing workflow with real business logic (fraud detection, manual review queues), orchestrated via the **Saga pattern**, with built-in **chaos engineering** capabilities.
 
-This project is not just a demo—it's a hands-on laboratory. Built to be broken, observed, and improved. The core philosophy: *a system's true strength is revealed not when it's running perfectly, but when it's gracefully handling failures.*
+> *A system's true strength is revealed not when it's running perfectly, but when it's gracefully handling failures.*
+
+---
+
+## 🎯 What Makes This Different
+
+This is **not** a typical CRUD microservices demo. Here's what sets it apart:
+
+| Most Demos | Chaos Symphony |
+|------------|----------------|
+| Empty services that just pass messages | **Real business logic**: fraud detection, velocity checks, manual review queues |
+| "It works on my machine" | **Production patterns**: Outbox, Idempotency, DLQ with exponential backoff |
+| Hope nothing breaks | **Chaos engineering built-in**: programmatic fault injection, automated GameDay experiments |
+| Console.log debugging | **Full observability**: OpenTelemetry traces, Prometheus metrics, Grafana dashboards, SLO monitoring |
+| "Deploy and pray" | **Operational runbook**: documented incident response procedures |
+
+### Business Logic Highlights
+
+```
+Order Creation Flow:
+├── Fraud Detection (rule-based scoring)
+│   ├── High-value check (>$1000 → review)
+│   ├── Velocity check (multiple orders → flag)
+│   ├── Round number detection
+│   └── Off-hours risk scoring
+├── If flagged → PENDING_REVIEW (manual approval required)
+├── If approved → Saga workflow begins
+│   ├── Payment processing
+│   ├── Inventory reservation
+│   └── Shipping
+└── Full compensation on any failure
+```
 
 ---
 
 ## Table of Contents
 
+- [What Makes This Different](#-what-makes-this-different)
 - [Service Level Objectives](#service-level-objectives-slos)
 - [Architecture Overview](#architecture-overview)
 - [Key Patterns Implemented](#key-patterns-implemented)
@@ -41,6 +74,7 @@ This project is not just a demo—it's a hands-on laboratory. Built to be broken
 | **End-to-End Latency** | `p95(order_processing_time) < 2000ms` |
 | **Availability** | `successful_requests / total_requests >= 99.5%` |
 | **Data Integrity** | `dlt_messages_total < 0.3% of total messages` |
+| **Fraud Detection** | `flagged_orders / high_value_orders >= 95%` |
 
 ---
 
@@ -300,8 +334,8 @@ chaos-symphony/
 ├── dlq-admin/          # Dead-letter queue administration
 ├── gameday-svc/        # Automated chaos experiments
 ├── inventory-svc/      # Inventory reservation service
-├── orchestrator/       # Saga orchestration
-├── order-api/          # Order creation API (Outbox pattern)
+├── orchestrator/       # Saga orchestration with enum-based compensation
+├── order-api/          # Order API with fraud detection & manual review
 ├── payment-svc/        # Payment processing with canary support
 ├── shipping-svc/       # Shipping fulfillment
 ├── streams-analytics/  # Kafka Streams SLO analytics
@@ -314,25 +348,75 @@ chaos-symphony/
 
 ---
 
+## API Examples
+
+### Create Order (triggers fraud check)
+```bash
+# Low-value order → processes immediately
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{"customerId": "cust-123", "total": 99.99, "currency": "USD"}'
+
+# Response: {"orderId": "...", "status": "NEW", "reviewReason": null}
+```
+
+```bash
+# High-value order → flagged for review
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{"customerId": "cust-123", "total": 1500.00, "currency": "USD"}'
+
+# Response: {"orderId": "...", "status": "PENDING_REVIEW", "reviewReason": "High value order: $1500.00 (score +35.0)"}
+```
+
+### Approve/Reject Flagged Order
+```bash
+# Approve after review
+curl -X POST http://localhost:8080/api/orders/{orderId}/approve
+
+# Reject with reason
+curl -X POST http://localhost:8080/api/orders/{orderId}/reject \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Fraud confirmed - stolen card"}'
+```
+
+### List Pending Reviews
+```bash
+curl http://localhost:8080/api/orders/pending-review
+```
+
+---
+
 ## Anti-CRUD Checklist
 
+### Business Logic
+- [x] **Fraud Detection** — Rule-based scoring with velocity checks, value thresholds, round number detection
+- [x] **Manual Review Queue** — High-risk orders held for human approval
+- [x] **Order State Machine** — Proper lifecycle with documented transitions
+
+### Distributed Systems Patterns
 - [x] **SAGA Pattern** — Orchestrated order workflow with full compensation
-- [x] **Saga State Persistence** — Survives restarts, supports retry
-- [x] **Event Schemas** — Confluent Schema Registry with Avro
-- [x] **Idempotency** — All consumers track processed IDs
+- [x] **Saga State Persistence** — Survives restarts, enum-based retry strategy
+- [x] **Outbox Pattern** — Debezium CDC for exactly-once event publishing
+- [x] **Idempotent Consumers** — All services track processed message IDs
 - [x] **DLQ Policy** — Exponential backoff via `@RetryableTopic`
+
+### Resilience & Chaos
+- [x] **Chaos Engineering** — Programmatic fault injection (delay, drop, corrupt, duplicate)
+- [x] **Automated GameDay** — GitHub Actions chaos workflow with SLO validation
 - [x] **Graceful Shutdown** — Proper Kafka consumer drain
-- [x] **Observability** — OTel traces, Prometheus metrics, Grafana dashboards
-- [x] **Testcontainers** — E2E integration testing with real Kafka/PostgreSQL
+
+### Observability
+- [x] **Distributed Tracing** — OpenTelemetry integration
+- [x] **Metrics** — Prometheus with custom business metrics (fraud scores, review rates)
+- [x] **Dashboards** — Pre-configured Grafana with SLO panels
+- [x] **Operational Runbook** — Documented incident response
+
+### Quality & Security
+- [x] **Test Coverage** — JaCoCo 60%+ enforced, Testcontainers for integration
 - [x] **Contract Tests** — Pact consumer/provider verification
-- [x] **RUNBOOK** — Operational documentation
-- [x] **Automated GameDay** — GitHub Actions chaos workflow
-- [x] **Replay Capability** — Time-travel event analysis
-- [x] **Test Coverage** — JaCoCo with 60%+ minimum
 - [x] **OAuth2/JWT Security** — Production-grade authentication
-- [x] **OpenAPI Spec** — API-first design with full documentation
-- [x] **Security Scanning** — Trivy vulnerability scanning in CI
-- [x] **Docker Multi-stage Builds** — Optimized container images
+- [x] **Security Scanning** — Trivy in CI pipeline
 
 ---
 
