@@ -17,7 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @DirtiesContext
-@EmbeddedKafka(partitions = 1, brokerProperties = { "listeners=PLAINTEXT://localhost:9092", "port=9092" })
+@EmbeddedKafka(partitions = 1, brokerProperties = { "listeners=PLAINTEXT://localhost:0", "port=0" })
 class DlqControllerIntegrationTest {
 
     @Autowired
@@ -25,21 +25,16 @@ class DlqControllerIntegrationTest {
 
     @Test
     void testListDlqTopics() throws Exception {
-        
-        
-        
-        
-        
 
         mockMvc.perform(get("/api/dlq/topics")
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray());
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$").isArray());
     }
 
     @Test
     void testListDlqTopicsRequiresAuth() throws Exception {
         mockMvc.perform(get("/api/dlq/topics"))
-                .andExpect(status().isUnauthorized());
+            .andExpect(status().isUnauthorized());
     }
 }
