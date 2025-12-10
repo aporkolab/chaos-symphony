@@ -1,3 +1,4 @@
+
 # Stage 1: Build the Angular application
 FROM node:20-alpine AS builder
 

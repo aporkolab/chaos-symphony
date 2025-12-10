@@ -11,7 +11,7 @@ COPY mvnw pom.xml ./
 # Copy the entire project source code
 COPY . .
 
-# Build the target service ('shipping-svc') and its dependencies ('-am')
+# Build the target service and its dependencies
 RUN mvn -B package -pl shipping-svc -am -DskipTests
 
 # ---
@@ -21,11 +21,14 @@ FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app
 
+# Download OpenTelemetry Java agent
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.10.0/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+
 # Copy the executable JAR from the builder stage
 COPY --from=builder /app/shipping-svc/target/*.jar ./application.jar
 
 # Expose the port that the application will run on
 EXPOSE 8085
 
-# Set the entrypoint to run the application
-ENTRYPOINT ["java", "-jar", "./application.jar"]
+# Set the entrypoint to run the application with OTel agent
+ENTRYPOINT ["java", "-javaagent:/app/opentelemetry-javaagent.jar", "-jar", "./application.jar"]

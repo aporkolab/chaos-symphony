@@ -21,11 +21,14 @@ FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app
 
+# Download OpenTelemetry Java agent
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.10.0/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+
 # Copy the executable JAR from the builder stage
 COPY --from=builder /app/orchestrator/target/*.jar ./application.jar
 
 # Expose the port that the application will run on
 EXPOSE 8091
 
-# Set the entrypoint to run the application
-ENTRYPOINT ["java", "-jar", "./application.jar"]
+# Set the entrypoint to run the application with OTel agent
+ENTRYPOINT ["java", "-javaagent:/app/opentelemetry-javaagent.jar", "-jar", "./application.jar"]
