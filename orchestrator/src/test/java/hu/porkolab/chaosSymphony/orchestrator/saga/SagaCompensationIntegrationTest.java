@@ -17,6 +17,7 @@ import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import java.time.Duration;
@@ -31,6 +32,12 @@ import static org.awaitility.Awaitility.await;
 @SpringBootTest
 @EnableTransactionManagement
 @ActiveProfiles("test")
+@TestPropertySource(properties = {
+    "spring.datasource.url=jdbc:h2:mem:sagadb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE",
+    "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.datasource.username=sa",
+    "spring.datasource.password="
+})
 @EmbeddedKafka(
     partitions = 1,
     topics = {
@@ -83,16 +90,16 @@ class SagaCompensationIntegrationTest {
     @Test
     @DisplayName("Full saga should complete successfully without compensation")
     void fullSaga_happyPath_shouldCompleteWithoutCompensation() {
-        
+
         String orderId = UUID.randomUUID().toString();
         String paymentId = UUID.randomUUID().toString();
         String reservationId = UUID.randomUUID().toString();
         String shippingId = UUID.randomUUID().toString();
 
-        
+
         sagaOrchestrator.startSaga(orderId);
 
-        
+
         sagaOrchestrator.onPaymentCompleted(orderId, paymentId);
 
         await().atMost(5, TimeUnit.SECONDS).until(() -> {
@@ -100,7 +107,7 @@ class SagaCompensationIntegrationTest {
             return saga != null && saga.getState() == SagaState.PAYMENT_COMPLETED;
         });
 
-        
+
         sagaOrchestrator.onInventoryReserved(orderId, reservationId);
 
         await().atMost(5, TimeUnit.SECONDS).until(() -> {
@@ -108,7 +115,7 @@ class SagaCompensationIntegrationTest {
             return saga != null && saga.getState() == SagaState.INVENTORY_RESERVED;
         });
 
-        
+
         sagaOrchestrator.onShippingCompleted(orderId, shippingId);
 
         await().atMost(5, TimeUnit.SECONDS).until(() -> {
@@ -122,7 +129,7 @@ class SagaCompensationIntegrationTest {
         assertThat(completedSaga.getShippingId()).isEqualTo(shippingId);
         assertThat(completedSaga.getFailureReason()).isNull();
 
-        
+
         ConsumerRecords<String, String> records = compensationConsumer.poll(Duration.ofSeconds(2));
         assertThat(records.count()).isZero();
     }
@@ -130,7 +137,7 @@ class SagaCompensationIntegrationTest {
     @Test
     @DisplayName("Inventory failure should trigger payment refund compensation")
     void inventoryFailure_shouldTriggerPaymentRefundCompensation() {
-        
+
         String orderId = UUID.randomUUID().toString();
         String paymentId = UUID.randomUUID().toString();
 
@@ -142,7 +149,7 @@ class SagaCompensationIntegrationTest {
             return saga != null && saga.getState() == SagaState.PAYMENT_COMPLETED;
         });
 
-        
+
         String reason = "Item unavailable";
         sagaOrchestrator.onInventoryFailed(orderId, reason);
 
@@ -151,7 +158,7 @@ class SagaCompensationIntegrationTest {
             return saga != null && saga.getState() == SagaState.COMPENSATING;
         });
 
-        
+
         ConsumerRecords<String, String> records =
             KafkaTestUtils.getRecords(compensationConsumer, Duration.ofSeconds(5));
 
@@ -167,17 +174,17 @@ class SagaCompensationIntegrationTest {
     @Test
     @DisplayName("Saga state should survive repository operations")
     void sagaStatePersistence_shouldSurviveRepositoryOperations() {
-        
+
         String orderId = UUID.randomUUID().toString();
         String paymentId = UUID.randomUUID().toString();
 
-        
+
         SagaInstance created = sagaOrchestrator.startSaga(orderId);
         assertThat(created.getState()).isEqualTo(SagaState.STARTED);
 
         sagaOrchestrator.onPaymentCompleted(orderId, paymentId);
 
-        
+
         SagaInstance reloaded = sagaRepository.findById(orderId).orElseThrow();
         assertThat(reloaded.getState()).isEqualTo(SagaState.PAYMENT_COMPLETED);
         assertThat(reloaded.getPaymentId()).isEqualTo(paymentId);
