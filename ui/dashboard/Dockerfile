@@ -14,7 +14,7 @@ RUN npm ci
 COPY . .
 
 # Build the application for production
-# The output will be in the /app/dist/dashboard directory
+# The output will be in the /app/dist/chaos-symphony-dashboard directory
 RUN npm run build -- --configuration=production
 
 # ---
@@ -29,7 +29,7 @@ RUN rm /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy the built application from the builder stage to Nginx's web root
-COPY --from=builder /app/dist/dashboard/browser /usr/share/nginx/html
+COPY --from=builder /app/dist/chaos-symphony-dashboard/browser /usr/share/nginx/html
 
 # Expose port 80 for the web server
 EXPOSE 80

@@ -14,14 +14,16 @@ services:
     image: curlimages/curl
     volumes:
       - otel-agent:/otel
+    networks: [chaos-net]
     command: >
       sh -c "
-        if [ ! -f /otel/opentelemetry-javaagent.jar ]; then
-          echo 'Downloading OpenTelemetry Java agent...'
-          curl -L -o /otel/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar;
-        else
+        if [ -f /otel/opentelemetry-javaagent.jar ] && [ -s /otel/opentelemetry-javaagent.jar ]; then
           echo 'OpenTelemetry Java agent already exists.';
-        fi
+          exit 0;
+        fi;
+        echo 'Downloading OpenTelemetry Java agent...';
+        curl -fSL --retry 3 --retry-delay 5 -o /otel/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.10.0/opentelemetry-javaagent.jar || exit 1;
+        echo 'Download complete.';
       "
 
   postgres:
@@ -88,7 +90,9 @@ services:
     networks: [chaos-net]
 
   order-api:
-    build: { context: ../order-api }
+    build:
+      context: ..
+      dockerfile: order-api/Dockerfile
     depends_on: { kafka: { condition: service_started }, postgres: { condition: service_healthy }, otel-agent-downloader: { condition: service_completed_successfully } }
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -100,7 +104,9 @@ services:
     networks: [chaos-net]
 
   orchestrator:
-    build: { context: ../orchestrator }
+    build:
+      context: ..
+      dockerfile: orchestrator/Dockerfile
     depends_on: { kafka: { condition: service_started }, postgres: { condition: service_healthy }, otel-agent-downloader: { condition: service_completed_successfully } }
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -112,7 +118,9 @@ services:
     networks: [chaos-net]
 
   payment-svc:
-    build: { context: ../payment-svc }
+    build:
+      context: ..
+      dockerfile: payment-svc/Dockerfile
     depends_on: { kafka: { condition: service_started }, postgres: { condition: service_healthy }, otel-agent-downloader: { condition: service_completed_successfully } }
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -124,7 +132,9 @@ services:
     networks: [chaos-net]
 
   payment-svc-canary:
-    build: { context: ../payment-svc }
+    build:
+      context: ..
+      dockerfile: payment-svc/Dockerfile
     depends_on: { kafka: { condition: service_started }, postgres: { condition: service_healthy }, otel-agent-downloader: { condition: service_completed_successfully } }
     environment:
       - SPRING_PROFILES_ACTIVE=docker,canary
@@ -136,7 +146,9 @@ services:
     networks: [chaos-net]
 
   inventory-svc:
-    build: { context: ../inventory-svc }
+    build:
+      context: ..
+      dockerfile: inventory-svc/Dockerfile
     depends_on: { kafka: { condition: service_started }, postgres: { condition: service_healthy }, otel-agent-downloader: { condition: service_completed_successfully } }
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -148,7 +160,9 @@ services:
     networks: [chaos-net]
 
   shipping-svc:
-    build: { context: ../shipping-svc }
+    build:
+      context: ..
+      dockerfile: shipping-svc/Dockerfile
     depends_on: { kafka: { condition: service_started }, postgres: { condition: service_healthy }, otel-agent-downloader: { condition: service_completed_successfully } }
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -160,7 +174,9 @@ services:
     networks: [chaos-net]
 
   streams-analytics:
-    build: { context: ../streams-analytics }
+    build:
+      context: ..
+      dockerfile: streams-analytics/Dockerfile
     depends_on: { kafka: { condition: service_started }, otel-agent-downloader: { condition: service_completed_successfully } }
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -172,7 +188,9 @@ services:
     networks: [chaos-net]
 
   dlq-admin:
-    build: { context: ../dlq-admin }
+    build:
+      context: ..
+      dockerfile: dlq-admin/Dockerfile
     depends_on: { kafka: { condition: service_started }, otel-agent-downloader: { condition: service_completed_successfully } }
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -184,7 +202,9 @@ services:
     networks: [chaos-net]
 
   chaos-svc:
-    build: { context: ../chaos-svc }
+    build:
+      context: ..
+      dockerfile: chaos-svc/Dockerfile
     depends_on: { kafka: { condition: service_started }, otel-agent-downloader: { condition: service_completed_successfully } }
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -196,7 +216,9 @@ services:
     networks: [chaos-net]
 
   gameday-svc:
-    build: { context: ../gameday-svc }
+    build:
+      context: ..
+      dockerfile: gameday-svc/Dockerfile
     depends_on: { chaos-svc: { condition: service_started }, otel-agent-downloader: { condition: service_completed_successfully } }
     environment:
       - SPRING_PROFILES_ACTIVE=docker
