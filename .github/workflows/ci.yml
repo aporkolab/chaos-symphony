@@ -1,0 +1,222 @@
+name: CI Build and Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  JAVA_VERSION: '21'
+  NODE_VERSION: '20'
+
+jobs:
+  build-and-test-backend:
+    name: 🏗️ Build & Test Backend
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: test_orders
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test -d test_orders"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      kafka:
+        image: apache/kafka:3.7.0
+        ports: ["9092:9092"]
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+          CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up Temurin JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'maven'
+
+      - name: 📦 Cache OWASP Dependency-Check data
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: dc-data-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            dc-data-${{ runner.os }}-
+
+      - name: 🧹 Purge DC database (safe to run)
+        run: mvn -q org.owasp:dependency-check-maven:purge || true
+
+      - name: 🔨 Build, Test & Verify
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:${{ job.services.postgres.ports[5432] }}/test_orders
+          SPRING_DATASOURCE_USERNAME: test
+          SPRING_DATASOURCE_PASSWORD: test
+          SPRING_KAFKA_BOOTSTRAP_SERVERS: localhost:${{ job.services.kafka.ports[9092] }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: mvn -U -B clean verify -DskipITs=false
+
+      - name: 📊 Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: JUnit Test Results
+          path: '**/target/surefire-reports/TEST-*.xml'
+          reporter: java-junit
+
+      - name: 📈 Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: '**/target/site/jacoco/jacoco.xml'
+          fail_ci_if_error: false
+          verbose: true
+
+      - name: 📁 Upload Coverage Report Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: '**/target/site/jacoco/'
+          retention-days: 7
+
+      - name: 📋 Upload Pact Contracts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pact-contracts
+          path: '**/target/pacts/'
+          retention-days: 30
+
+      - name: ✅ Verify Coverage Threshold (60%)
+        run: |
+          echo "Checking JaCoCo coverage reports..."
+          COVERAGE_FAILED=0
+          for report in $(find . -path "*/target/site/jacoco/jacoco.xml" -type f); do
+            MODULE=$(dirname "$report" | sed 's|/target/site/jacoco||')
+            COVERAGE=$(grep -oP 'INSTRUCTION.*?covered="\K[0-9]+' "$report" | head -1)
+            MISSED=$(grep -oP 'INSTRUCTION.*?missed="\K[0-9]+' "$report" | head -1)
+            if [ -n "$COVERAGE" ] && [ -n "$MISSED" ]; then
+              TOTAL=$((COVERAGE + MISSED))
+              if [ $TOTAL -gt 0 ]; then
+                PCT=$((100 * COVERAGE / TOTAL))
+                echo "📊 $MODULE: ${PCT}% coverage"
+                if [ $PCT -lt 60 ]; then
+                  echo "❌ Coverage below 60% threshold!"
+                  COVERAGE_FAILED=1
+                fi
+              fi
+            fi
+          done
+          exit $COVERAGE_FAILED
+
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: build-and-test-backend
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📤 Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  build-and-test-frontend:
+    name: 🎨 Build & Test Frontend
+    runs-on: ubuntu-latest
+    needs: build-and-test-backend
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'ui/dashboard/package-lock.json'
+
+      - name: 📦 Install UI Dependencies
+        working-directory: ui/dashboard
+        run: npm ci
+
+      - name: 🧪 Run UI Tests
+        working-directory: ui/dashboard
+        run: npm test -- --watch=false --browsers=ChromeHeadless --code-coverage
+
+      - name: 🏗️ Build UI for Production
+        working-directory: ui/dashboard
+        run: npm run build -- --configuration=production
+
+      - name: 📁 Upload UI Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-dist
+          path: ui/dashboard/dist/
+          retention-days: 7
+
+  docker-build:
+    name: 🐳 Docker Build
+    runs-on: ubuntu-latest
+    needs: [build-and-test-backend, build-and-test-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    strategy:
+      matrix:
+        service: [order-api, orchestrator, payment-svc, inventory-svc, shipping-svc, chaos-svc, dlq-admin, streams-analytics]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🏗️ Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          push: false
+          tags: chaos-symphony/${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
