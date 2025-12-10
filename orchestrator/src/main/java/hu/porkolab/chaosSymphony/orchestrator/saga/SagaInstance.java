@@ -28,6 +28,10 @@ public class SagaInstance {
     @Column(nullable = false, length = 32)
     private SagaState state;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "failed_state", length = 32)
+    private SagaState failedState;
+
     @Column(name = "payment_id", length = 36)
     private String paymentId;
 
@@ -68,7 +72,7 @@ public class SagaInstance {
 
     
     public void fail(SagaState failedState, String reason) {
-        this.state = failedState;
+        this.failedState = failedState;
         this.failureReason = reason;
     }
 }

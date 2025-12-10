@@ -144,6 +144,13 @@ sequenceDiagram
     *   Retry of stuck compensations via scheduled job
     *   Audit trail of saga lifecycle
     *   Metrics on compensation rates
+*   **ADR-0007: OAuth2/JWT Authentication:** Admin APIs (DLQ management, chaos injection) are protected with OAuth2 Resource Server:
+    *   **Why JWT?** Stateless authentication scales horizontally without session synchronization
+    *   **Why Resource Server?** Services validate tokens locally without calling the IdP on every request
+    *   **IdP Agnostic:** Supports Keycloak, Auth0, Okta, or any OIDC-compliant provider via configuration
+    *   **Role Mapping:** Custom converter handles both Keycloak (`realm_access.roles`) and Auth0 (`permissions`) claim formats
+    *   **Development Mode:** `spring.profiles.active=dev` disables authentication for local development
+    *   **Trade-off:** Token revocation requires short expiry times or token introspection (not implemented)
 
 ## 5. Deployment - Kubernetes & Canary
 

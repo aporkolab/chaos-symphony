@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS saga_instance (
     order_id VARCHAR(36) PRIMARY KEY,
     state VARCHAR(32) NOT NULL,
+    failed_state VARCHAR(32),
     payment_id VARCHAR(36),
     inventory_reservation_id VARCHAR(36),
     shipping_id VARCHAR(36),

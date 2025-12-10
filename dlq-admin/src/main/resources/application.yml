@@ -1,5 +1,6 @@
 server:
   port: 8089
+
 spring:
   jackson:
     time-zone: Europe/Budapest
@@ -8,7 +9,6 @@ spring:
     listener:
       ack-mode: record
     consumer:
-      # ha nincs @KafkaListener-ben groupId, add meg itt:
       group-id: ${spring.application.name:-app}-grp
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -19,6 +19,22 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
     properties:
       client.dns.lookup: use_all_dns_ips
+  
+  
+  
+  
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          
+          issuer-uri: ${OAUTH2_ISSUER_URI:http://localhost:8180/realms/chaos-symphony}
+          
+          
+
+
+security:
+  mode: ${SECURITY_MODE:jwt}  
 
 management:
   server:
@@ -35,6 +51,7 @@ logging:
   level:
     root: INFO
     org.springframework.kafka: INFO
+    org.springframework.security: DEBUG
     hu.porkolab.chaosSymphony: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"

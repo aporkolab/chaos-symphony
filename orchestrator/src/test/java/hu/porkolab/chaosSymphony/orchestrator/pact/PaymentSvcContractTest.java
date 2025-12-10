@@ -8,13 +8,13 @@ import au.com.dius.pact.core.model.PactSpecVersion;
 import au.com.dius.pact.core.model.annotations.Pact;
 import au.com.dius.pact.core.model.messaging.Message;
 import au.com.dius.pact.core.model.messaging.MessagePact;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import hu.porkolab.chaosSymphony.orchestrator.config.TestConfig;
-import hu.porkolab.chaosSymphony.orchestrator.kafka.PaymentProducer;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.mockito.Mock;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -23,6 +23,8 @@ import org.springframework.test.context.ContextConfiguration;
 import java.util.List;
 
 import static au.com.dius.pact.consumer.dsl.LambdaDsl.newJsonBody;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 @ExtendWith(PactConsumerTestExt.class)
 @SpringBootTest
@@ -33,11 +35,12 @@ import static au.com.dius.pact.consumer.dsl.LambdaDsl.newJsonBody;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @PactTestFor(providerName = "payment-svc", providerType = ProviderType.ASYNCH, pactVersion = PactSpecVersion.V3)
 @ContextConfiguration(classes = TestConfig.class)
+@DisplayName("Orchestrator ↔ Payment Service Contract Tests")
 public class PaymentSvcContractTest {
 
-    @Mock
-    private PaymentProducer paymentProducer;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
+    
     @Pact(consumer = "orchestrator")
     public MessagePact createPaymentRequestedPact(MessagePactBuilder builder) {
         return builder
@@ -51,13 +54,83 @@ public class PaymentSvcContractTest {
                 .toPact();
     }
 
+    
+    @Pact(consumer = "orchestrator")
+    public MessagePact createPaymentCompletedPact(MessagePactBuilder builder) {
+        return builder
+                .expectsToReceive("A payment completed event")
+                .withContent(newJsonBody(envelope -> {
+                    envelope.stringType("orderId", "e7a4f431-b2e3-4b43-8a24-8e2b1d3a0e46");
+                    envelope.stringType("eventId");
+                    envelope.stringType("type", "PaymentCompleted");
+                    envelope.stringType("payload");
+                }).build())
+                .toPact();
+    }
+
+    
+    @Pact(consumer = "orchestrator")
+    public MessagePact createPaymentFailedPact(MessagePactBuilder builder) {
+        return builder
+                .expectsToReceive("A payment failed event")
+                .withContent(newJsonBody(envelope -> {
+                    envelope.stringType("orderId", "e7a4f431-b2e3-4b43-8a24-8e2b1d3a0e46");
+                    envelope.stringType("eventId");
+                    envelope.stringType("type", "PaymentFailed");
+                    envelope.stringType("payload");
+                }).build())
+                .toPact();
+    }
+
     @Test
     @PactTestFor(pactMethod = "createPaymentRequestedPact")
-    public void testPaymentRequested(List<Message> messages) {
-        // This test method needs to exist for the Pact framework to discover the
-        // @Pact method ("createPaymentRequestedPact").
-        // The body can be empty because we are mocking the PaymentProducer.
-        // The goal is just to generate the contract file, not to test the producer's logic.
-        assert !messages.isEmpty();
+    @DisplayName("Should accept payment request message format")
+    void testPaymentRequested(List<Message> messages) throws Exception {
+        assertThat(messages).isNotEmpty();
+        
+        Message message = messages.get(0);
+        String content = message.contentsAsString();
+        
+        
+        JsonNode envelope = objectMapper.readTree(content);
+        
+        assertThat(envelope.has("orderId")).isTrue();
+        assertThat(envelope.has("eventId")).isTrue();
+        assertThat(envelope.has("type")).isTrue();
+        assertThat(envelope.has("payload")).isTrue();
+        
+        
+        String payloadStr = envelope.get("payload").asText();
+        JsonNode payload = objectMapper.readTree(payloadStr);
+        
+        assertThat(payload.has("orderId")).isTrue();
+        assertThat(payload.has("amount")).isTrue();
+        assertThat(payload.has("currency")).isTrue();
+    }
+
+    @Test
+    @PactTestFor(pactMethod = "createPaymentCompletedPact")
+    @DisplayName("Should accept payment completed message format")
+    void testPaymentCompleted(List<Message> messages) throws Exception {
+        assertThat(messages).isNotEmpty();
+        
+        Message message = messages.get(0);
+        JsonNode envelope = objectMapper.readTree(message.contentsAsString());
+        
+        assertThat(envelope.get("type").asText()).isEqualTo("PaymentCompleted");
+        assertThat(envelope.has("orderId")).isTrue();
+    }
+
+    @Test
+    @PactTestFor(pactMethod = "createPaymentFailedPact")
+    @DisplayName("Should accept payment failed message format for compensation")
+    void testPaymentFailed(List<Message> messages) throws Exception {
+        assertThat(messages).isNotEmpty();
+        
+        Message message = messages.get(0);
+        JsonNode envelope = objectMapper.readTree(message.contentsAsString());
+        
+        assertThat(envelope.get("type").asText()).isEqualTo("PaymentFailed");
+        assertThat(envelope.has("orderId")).isTrue();
     }
 }
