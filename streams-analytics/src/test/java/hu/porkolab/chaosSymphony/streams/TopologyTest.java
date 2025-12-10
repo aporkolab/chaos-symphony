@@ -1,7 +1,6 @@
 package hu.porkolab.chaosSymphony.streams;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.*;
 import org.junit.jupiter.api.AfterEach;
@@ -10,86 +9,114 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Properties;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
-class TopologyTest {
+class TopologyConfigTest {
 
     private TopologyTestDriver testDriver;
     private TestInputTopic<String, String> inputTopic;
     private TestOutputTopic<String, Long> outputTopic;
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @BeforeEach
-    void setUp() {
-        Topology topology = new TopologyConfig().topology();
+    void setup() {
+        TopologyConfig config = new TopologyConfig();
+        Topology topology = config.topology();
 
         Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "test");
+        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "test-app");
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "dummy:1234");
-        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
-        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
+        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.StringSerde.class);
+        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.StringSerde.class);
 
         testDriver = new TopologyTestDriver(topology, props);
 
-        inputTopic = testDriver.createInputTopic("payment.result", Serdes.String().serializer(), Serdes.String().serializer());
-        outputTopic = testDriver.createOutputTopic("analytics.payment.status.count", Serdes.String().deserializer(), Serdes.Long().deserializer());
+        inputTopic = testDriver.createInputTopic(
+            "payment.result",
+            Serdes.String().serializer(),
+            Serdes.String().serializer()
+        );
+
+        outputTopic = testDriver.createOutputTopic(
+            "analytics.payment.status.count",
+            Serdes.String().deserializer(),
+            Serdes.Long().deserializer()
+        );
     }
 
     @AfterEach
-    void tearDown() {
-        testDriver.close();
-    }
-
-    @Test
-    void shouldCountPaymentStatuses() {
-        // Given
-        inputTopic.pipeInput("order1", createPaymentResultMessage("CHARGED"));
-        inputTopic.pipeInput("order2", createPaymentResultMessage("CHARGED"));
-        inputTopic.pipeInput("order3", createPaymentResultMessage("FAILED"));
-
-        // Then
-        assertEquals(new KeyValue<>("CHARGED", 1L), outputTopic.readKeyValue());
-        assertEquals(new KeyValue<>("CHARGED", 2L), outputTopic.readKeyValue());
-        assertEquals(new KeyValue<>("FAILED", 1L), outputTopic.readKeyValue());
-        assertTrue(outputTopic.isEmpty());
-    }
-
-    @Test
-    void shouldHandleMalformedJsonAsUnknown() {
-        // Given
-        inputTopic.pipeInput("malformed1", "this is not json");
-
-        // Then
-        assertEquals(new KeyValue<>("UNKNOWN", 1L), outputTopic.readKeyValue());
-        assertTrue(outputTopic.isEmpty());
-    }
-
-    @Test
-    void shouldHandleMissingStatusAsUnknown() {
-        // Given
-        inputTopic.pipeInput("missingStatus1", createPaymentResultMessage(null));
-
-        // Then
-        assertEquals(new KeyValue<>("UNKNOWN", 1L), outputTopic.readKeyValue());
-        assertTrue(outputTopic.isEmpty());
-    }
-
-    private String createPaymentResultMessage(String status) {
-        try {
-            ObjectNode payload = MAPPER.createObjectNode();
-            if (status != null) {
-                payload.put("status", status);
-            }
-
-            ObjectNode root = MAPPER.createObjectNode();
-            root.put("id", "some-id");
-            // The topology expects the payload to be a string, which is then parsed again.
-            // This matches the "double json" format handled by the production code.
-            root.put("payload", payload.toString());
-            return MAPPER.writeValueAsString(root);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    void teardown() {
+        if (testDriver != null) {
+            testDriver.close();
         }
+    }
+
+    @Test
+    void shouldExtractStatusFromNestedPayload() {
+        String json = "{\"payload\":\"{\\\"status\\\":\\\"CHARGED\\\"}\"}";
+        inputTopic.pipeInput("key1", json);
+
+        var records = outputTopic.readKeyValuesToList();
+        assertThat(records).anyMatch(r -> r.key.equals("CHARGED") && r.value == 1L);
+    }
+
+    @Test
+    void shouldExtractStatusFromDirectPayload() {
+        String json = "{\"payload\":{\"status\":\"CHARGE_FAILED\"}}";
+        inputTopic.pipeInput("key2", json);
+
+        var records = outputTopic.readKeyValuesToList();
+        assertThat(records).anyMatch(r -> r.key.equals("CHARGE_FAILED") && r.value == 1L);
+    }
+
+    @Test
+    void shouldReturnUnknownForInvalidJson() {
+        inputTopic.pipeInput("key3", "not-valid-json");
+
+        var records = outputTopic.readKeyValuesToList();
+        assertThat(records).anyMatch(r -> r.key.equals("UNKNOWN") && r.value == 1L);
+    }
+
+    @Test
+    void shouldReturnUnknownForMissingStatus() {
+        String json = "{\"payload\":{\"other\":\"field\"}}";
+        inputTopic.pipeInput("key4", json);
+
+        var records = outputTopic.readKeyValuesToList();
+        assertThat(records).anyMatch(r -> r.key.equals("UNKNOWN") && r.value == 1L);
+    }
+
+    @Test
+    void shouldCountMultipleMessagesPerStatus() {
+        String charged1 = "{\"payload\":{\"status\":\"CHARGED\"}}";
+        String charged2 = "{\"payload\":{\"status\":\"CHARGED\"}}";
+        String failed = "{\"payload\":{\"status\":\"CHARGE_FAILED\"}}";
+
+        inputTopic.pipeInput("k1", charged1);
+        inputTopic.pipeInput("k2", charged2);
+        inputTopic.pipeInput("k3", failed);
+
+        var records = outputTopic.readKeyValuesToList();
+
+        // Last CHARGED count should be 2
+        long chargedCount = records.stream()
+            .filter(r -> "CHARGED".equals(r.key))
+            .mapToLong(r -> r.value)
+            .max()
+            .orElse(0);
+        assertThat(chargedCount).isEqualTo(2);
+
+        // CHARGE_FAILED count should be 1
+        long failedCount = records.stream()
+            .filter(r -> "CHARGE_FAILED".equals(r.key))
+            .mapToLong(r -> r.value)
+            .max()
+            .orElse(0);
+        assertThat(failedCount).isEqualTo(1);
+    }
+
+    @Test
+    void shouldHaveWindowedStores() {
+        assertThat(testDriver.getWindowStore(TopologyConfig.STATUS_COUNT_STORE_1H)).isNotNull();
+        assertThat(testDriver.getWindowStore(TopologyConfig.STATUS_COUNT_STORE_6H)).isNotNull();
     }
 }
