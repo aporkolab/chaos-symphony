@@ -1,0 +1,23 @@
+{
+  "name": "orders-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "app",
+    "database.password": "app",
+    "database.dbname": "orders",
+    "topic.prefix": "chaosdb",
+    "publication.name": "dbz_publication",
+    "slot.name": "dbz_slot_orders",
+    "plugin.name": "pgoutput",
+    "table.include.list": "public.order_outbox",
+    "tombstones.on.delete": "false",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.field.event.key": "aggregate_id",
+    "transforms.outbox.table.field.event.payload.id": "id",
+    "transforms.outbox.route.by.field": "type",
+    "transforms.outbox.route.topic.replacement": "order.created"
+  }
+}

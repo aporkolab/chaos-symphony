@@ -1,0 +1,315 @@
+volumes:
+  postgres-data:
+
+networks:
+  chaos-net:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    command: ["postgres", "-c", "wal_level=logical"]
+    environment:
+      POSTGRES_DB: "orders"
+      POSTGRES_USER: "app"
+      POSTGRES_PASSWORD: "app"
+    ports: ["5432:5432"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql:ro
+    networks: [chaos-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d orders"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    environment: { ZOOKEEPER_CLIENT_PORT: 2181 }
+    networks: [chaos-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on: [zookeeper]
+    ports: ["29092:29092"]
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://127.0.0.1:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks: [chaos-net]
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.1
+    depends_on: [kafka]
+    ports: ["8081:8081"]
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka:9092'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    networks: [chaos-net]
+
+  connect:
+    image: debezium/connect:2.6
+    depends_on:
+      kafka:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    ports: ["8093:8083"]
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: "debezium"
+      CONFIG_STORAGE_TOPIC: "debezium-config"
+      OFFSET_STORAGE_TOPIC: "debezium-offset"
+      STATUS_STORAGE_TOPIC: "debezium-status"
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [chaos-net]
+
+  debezium-init:
+    image: curlimages/curl:latest
+    depends_on:
+      connect:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./init-debezium.sh:/init-debezium.sh:ro
+      - ./debezium-orders.json:/config/debezium-orders.json:ro
+    entrypoint: ["/bin/sh", "/init-debezium.sh"]
+    restart: "no"
+    networks: [chaos-net]
+
+  order-api:
+    build:
+      context: ..
+      dockerfile: order-api/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - OTEL_SERVICE_NAME=order-api
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+    ports: ["8080:8080"]
+    networks: [chaos-net]
+
+  orchestrator:
+    build:
+      context: ..
+      dockerfile: orchestrator/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      chaos-svc:
+        condition: service_started
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - OTEL_SERVICE_NAME=orchestrator
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - CHAOS_URL=http://chaos-svc:8088
+    ports: ["8091:8091", "9091:9091"]
+    networks: [chaos-net]
+
+  payment-svc:
+    build:
+      context: ..
+      dockerfile: payment-svc/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      chaos-svc:
+        condition: service_started
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - OTEL_SERVICE_NAME=payment-svc
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - CHAOS_URL=http://chaos-svc:8088
+    ports: ["8082:8082", "9082:9082"]
+    networks: [chaos-net]
+
+  payment-svc-canary:
+    build:
+      context: ..
+      dockerfile: payment-svc/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker,canary
+      - OTEL_SERVICE_NAME=payment-svc-canary
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+    ports: ["8083:8082"]
+    networks: [chaos-net]
+
+  inventory-svc:
+    build:
+      context: ..
+      dockerfile: inventory-svc/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - OTEL_SERVICE_NAME=inventory-svc
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+    ports: ["8084:8084", "9084:9084"]
+    networks: [chaos-net]
+
+  shipping-svc:
+    build:
+      context: ..
+      dockerfile: shipping-svc/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - OTEL_SERVICE_NAME=shipping-svc
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+    ports: ["8085:8085", "9085:9085"]
+    networks: [chaos-net]
+
+  streams-analytics:
+    build:
+      context: ..
+      dockerfile: streams-analytics/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_started
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - OTEL_SERVICE_NAME=streams-analytics
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+    ports: ["8095:8095"]
+    networks: [chaos-net]
+
+  dlq-admin:
+    build:
+      context: ..
+      dockerfile: dlq-admin/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_started
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - OTEL_SERVICE_NAME=dlq-admin
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+    ports: ["8089:8089"]
+    networks: [chaos-net]
+
+  chaos-svc:
+    build:
+      context: ..
+      dockerfile: chaos-svc/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_started
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - OTEL_SERVICE_NAME=chaos-svc
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+    ports: ["8088:8088"]
+    networks: [chaos-net]
+
+  gameday-svc:
+    build:
+      context: ..
+      dockerfile: gameday-svc/Dockerfile
+    depends_on:
+      chaos-svc:
+        condition: service_started
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - OTEL_SERVICE_NAME=gameday-svc
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - CHAOS_SVC_URL=http://chaos-svc:8088
+    ports: ["8099:8080"]
+    networks: [chaos-net]
+
+  ui:
+    build:
+      context: ../ui/dashboard
+      dockerfile: Dockerfile
+    container_name: ui
+    ports:
+      - "4200:80"
+    networks:
+      - chaos-net
+    depends_on:
+      - order-api
+      - streams-analytics
+      - dlq-admin
+      - chaos-svc
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest
+    depends_on: [kafka]
+    ports: ["9000:9000"]
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:9092"
+    networks: [chaos-net]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.90.1
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes: ["./otel-collector-config.yml:/etc/otel-collector-config.yml"]
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    networks: [chaos-net]
+
+  prometheus:
+    image: prom/prometheus
+    ports: ["9090:9090"]
+    volumes: ["./prometheus.yml:/etc/prometheus/prometheus.yml"]
+    networks: [chaos-net]
+
+  grafana:
+    image: grafana/grafana:latest
+    depends_on: [prometheus]
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports: ["${GRAFANA_PORT:-3000}:3000"]
+    networks: [chaos-net]
+    volumes:
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning/dashboards.yml:/etc/grafana/provisioning/dashboards/main.yml
+      - ./grafana/provisioning/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml

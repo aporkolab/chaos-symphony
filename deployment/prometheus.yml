@@ -1,0 +1,48 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'order-api'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['order-api:9080']
+
+  - job_name: 'orchestrator'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['orchestrator:9091']
+
+  - job_name: 'payment-svc'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['payment-svc:9082']
+
+  - job_name: 'inventory-svc'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['inventory-svc:9084']
+
+  - job_name: 'shipping-svc'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['shipping-svc:9085']
+
+  - job_name: 'chaos-svc'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['chaos-svc:9088']
+
+  - job_name: 'dlq-admin'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['dlq-admin:9089']
+
+  - job_name: 'streams-analytics'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['streams-analytics:9095']
