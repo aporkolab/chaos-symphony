@@ -1,19 +1,22 @@
 server:
   port: 8082
 
+
+kafka:
+  topic:
+    payment:
+      requested: payment.requested
+      requested.canary: payment.requested.canary
+      dlt: payment.requested.dlt
+  group:
+    id:
+      payment: payment-requested
+      payment.canary: payment-requested-canary
+
 spring:
   jackson:
     time-zone: Europe/Budapest
   kafka:
-    topic:
-      payment:
-        requested: payment.requested
-        requested.canary: payment.requested.canary
-        dlt: payment.requested.dlt
-    group:
-      id:
-        payment: payment-requested
-        payment.canary: payment-requested-canary
     bootstrap-servers: 127.0.0.1:29092
     retry:
       max-attempts: 5

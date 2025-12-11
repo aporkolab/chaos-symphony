@@ -82,6 +82,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=order-api
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
     ports: ["8080:8080"]
     networks: [chaos-net]
 
@@ -98,6 +99,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=orchestrator
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
     ports: ["8091:8091", "9091:9091"]
     networks: [chaos-net]
 
@@ -115,6 +117,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=payment-svc
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
     ports: ["8082:8082", "9082:9082"]
     networks: [chaos-net]
 
@@ -131,6 +134,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker,canary
       - OTEL_SERVICE_NAME=payment-svc-canary
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
     ports: ["8083:8082"]
     networks: [chaos-net]
 
@@ -148,6 +152,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=inventory-svc
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
     ports: ["8084:8084", "9084:9084"]
     networks: [chaos-net]
 
@@ -165,6 +170,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=shipping-svc
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
     ports: ["8085:8085", "9085:9085"]
     networks: [chaos-net]
 
@@ -179,6 +185,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=streams-analytics
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
     ports: ["8095:8095"]
     networks: [chaos-net]
 
@@ -193,6 +200,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=dlq-admin
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
     ports: ["8089:8089"]
     networks: [chaos-net]
 
@@ -207,6 +215,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=chaos-svc
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
     ports: ["8088:8088"]
     networks: [chaos-net]
 
@@ -221,6 +230,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=gameday-svc
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - CHAOS_SVC_URL=http://chaos-svc:8088
     ports: ["8099:8080"]
     networks: [chaos-net]
