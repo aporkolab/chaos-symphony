@@ -109,37 +109,21 @@ public class PaymentRequestedListener {
             
             double amount = message.path("amount").asDouble();
 
-            try {
-                simulatePaymentProcessing(orderId, logPrefix);
+            simulatePaymentProcessing(orderId, logPrefix);
 
-                String status = "CHARGED";
-                String paymentId = java.util.UUID.randomUUID().toString();
-                paymentStatusStore.save(orderId, status);
+            String status = "CHARGED";
+            String paymentId = java.util.UUID.randomUUID().toString();
+            paymentStatusStore.save(orderId, status);
 
-                String resultPayload = objectMapper.createObjectNode()
-                        .put("orderId", orderId)
-                        .put("paymentId", paymentId)
-                        .put("status", status)
-                        .put("amount", amount)
-                        .toString();
+            String resultPayload = objectMapper.createObjectNode()
+                    .put("orderId", orderId)
+                    .put("paymentId", paymentId)
+                    .put("status", status)
+                    .put("amount", amount)
+                    .toString();
 
-                log.info("{}Payment processed for orderId={}, paymentId={}, status: {}", logPrefix, orderId, paymentId, status);
-                producer.sendResult(orderId, resultPayload);
-            } catch (IllegalStateException e) {
-                
-                String status = "FAILED";
-                paymentStatusStore.save(orderId, status);
-
-                String resultPayload = objectMapper.createObjectNode()
-                        .put("orderId", orderId)
-                        .put("status", status)
-                        .put("reason", e.getMessage())
-                        .put("amount", amount)
-                        .toString();
-
-                log.warn("{}Payment failed for orderId={}: {}", logPrefix, orderId, e.getMessage());
-                producer.sendResult(orderId, resultPayload);
-            }
+            log.info("{}Payment processed for orderId={}, paymentId={}, status: {}", logPrefix, orderId, paymentId, status);
+            producer.sendResult(orderId, resultPayload);
             
         } finally {
             processingTime.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS);

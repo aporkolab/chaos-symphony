@@ -86,35 +86,23 @@ public class InventoryRequestedListener {
 
             int items = message.path("items").asInt(1);
 
-            try {
-                validateAndReserveInventory(orderId, items);
+            validateAndReserveInventory(orderId, items);
 
-                String status = "RESERVED";
-                String reservationId = java.util.UUID.randomUUID().toString();
-                
-                
-                releaseListener.trackReservation(orderId, reservationId);
-                
-                String resultPayload = objectMapper.createObjectNode()
-                        .put("orderId", orderId)
-                        .put("reservationId", reservationId)
-                        .put("status", status)
-                        .put("items", items)
-                        .toString();
+            String status = "RESERVED";
+            String reservationId = java.util.UUID.randomUUID().toString();
+            
+            
+            releaseListener.trackReservation(orderId, reservationId);
+            
+            String resultPayload = objectMapper.createObjectNode()
+                    .put("orderId", orderId)
+                    .put("reservationId", reservationId)
+                    .put("status", status)
+                    .put("items", items)
+                    .toString();
 
-                log.info("Inventory processed for orderId={}, reservationId={}, items={}, status={}", orderId, reservationId, items, status);
-                producer.sendResult(orderId, resultPayload);
-            } catch (IllegalStateException | IllegalArgumentException e) {
-                
-                String resultPayload = objectMapper.createObjectNode()
-                        .put("orderId", orderId)
-                        .put("status", "OUT_OF_STOCK")
-                        .put("reason", e.getMessage())
-                        .toString();
-
-                log.warn("Inventory unavailable for orderId={}: {}", orderId, e.getMessage());
-                producer.sendResult(orderId, resultPayload);
-            }
+            log.info("Inventory processed for orderId={}, reservationId={}, items={}, status={}", orderId, reservationId, items, status);
+            producer.sendResult(orderId, resultPayload);
             
         } finally {
             processingTime.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS);

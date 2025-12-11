@@ -13,21 +13,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.kafka.test.context.EmbeddedKafka;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Map;
 import java.util.UUID;
 
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-@EmbeddedKafka(partitions = 1, 
-    topics = {"payment.request", "payment.result"},
-    bootstrapServersProperty = "spring.kafka.bootstrap-servers")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Provider("payment-svc")
 @au.com.dius.pact.provider.junitsupport.loader.PactFolder("../orchestrator/target/pacts")
 @DisplayName("Payment Service Provider Verification")

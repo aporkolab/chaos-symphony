@@ -83,31 +83,19 @@ public class ShippingRequestedListener {
 
             String address = message.path("address").asText();
 
-            try {
-                validateAndShip(orderId, address);
+            validateAndShip(orderId, address);
 
-                String status = "SHIPPED";
-                String shippingId = java.util.UUID.randomUUID().toString();
-                String resultPayload = objectMapper.createObjectNode()
-                        .put("orderId", orderId)
-                        .put("shippingId", shippingId)
-                        .put("status", status)
-                        .put("address", address)
-                        .toString();
+            String status = "SHIPPED";
+            String shippingId = java.util.UUID.randomUUID().toString();
+            String resultPayload = objectMapper.createObjectNode()
+                    .put("orderId", orderId)
+                    .put("shippingId", shippingId)
+                    .put("status", status)
+                    .put("address", address)
+                    .toString();
 
-                log.info("Shipping processed for orderId={}, shippingId={}, address={}, status={}", orderId, shippingId, address, status);
-                producer.sendResult(orderId, resultPayload);
-            } catch (IllegalStateException | IllegalArgumentException e) {
-                
-                String resultPayload = objectMapper.createObjectNode()
-                        .put("orderId", orderId)
-                        .put("status", "FAILED")
-                        .put("reason", e.getMessage())
-                        .toString();
-
-                log.warn("Shipping failed for orderId={}: {}", orderId, e.getMessage());
-                producer.sendResult(orderId, resultPayload);
-            }
+            log.info("Shipping processed for orderId={}, shippingId={}, address={}, status={}", orderId, shippingId, address, status);
+            producer.sendResult(orderId, resultPayload);
             
         } finally {
             processingTime.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS);

@@ -19,6 +19,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -129,8 +130,8 @@ class PaymentRequestedListenerTest {
         }
 
         @Test
-        @DisplayName("Should send FAILED result when payment processing fails")
-        void shouldSendFailedResultWhenPaymentFails() throws Exception {
+        @DisplayName("Should throw when payment processing fails")
+        void shouldThrowWhenPaymentFails() throws Exception {
             
             String envelope = createEnvelope(ORDER_ID, AMOUNT);
             ConsumerRecord<String, String> record = new ConsumerRecord<>(
@@ -141,17 +142,9 @@ class PaymentRequestedListenerTest {
             ReflectionTestUtils.setField(listener, "successRate", 0.0);
             
             
-            listener.onPaymentRequested(record);
-            
-            
-            verify(paymentStatusStore).save(ORDER_ID, "FAILED");
-            
-            ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-            verify(producer).sendResult(eq(ORDER_ID), payloadCaptor.capture());
-            
-            String resultPayload = payloadCaptor.getValue();
-            assertThat(resultPayload).contains("\"status\":\"FAILED\"");
-            assertThat(resultPayload).contains("Payment processing failed");
+            assertThatThrownBy(() -> listener.onPaymentRequested(record))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Payment processing failed");
         }
     }
 
@@ -196,8 +189,8 @@ class PaymentRequestedListenerTest {
         }
 
         @Test
-        @DisplayName("Should send FAILED result when canary payment processing fails")
-        void shouldSendFailedResultWhenCanaryPaymentFails() throws Exception {
+        @DisplayName("Should throw when canary payment processing fails")
+        void shouldThrowWhenCanaryPaymentFails() throws Exception {
             
             String envelope = createEnvelope(ORDER_ID, AMOUNT);
             ConsumerRecord<String, String> record = new ConsumerRecord<>(
@@ -208,17 +201,9 @@ class PaymentRequestedListenerTest {
             ReflectionTestUtils.setField(listener, "successRate", 0.0);
             
             
-            listener.onPaymentRequestedCanary(record);
-            
-            
-            verify(paymentStatusStore).save(ORDER_ID, "FAILED");
-            
-            ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-            verify(producer).sendResult(eq(ORDER_ID), payloadCaptor.capture());
-            
-            String resultPayload = payloadCaptor.getValue();
-            assertThat(resultPayload).contains("\"status\":\"FAILED\"");
-            assertThat(resultPayload).contains("[CANARY] Payment processing failed");
+            assertThatThrownBy(() -> listener.onPaymentRequestedCanary(record))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("[CANARY] Payment processing failed");
         }
     }
 
@@ -237,7 +222,11 @@ class PaymentRequestedListenerTest {
             ReflectionTestUtils.setField(listener, "successRate", 0.0);
             
             
-            listener.onPaymentRequested(record);
+            try {
+                listener.onPaymentRequested(record);
+            } catch (IllegalStateException ignored) {
+                
+            }
             
             
             verify(processingTime).record(anyLong(), eq(TimeUnit.NANOSECONDS));
