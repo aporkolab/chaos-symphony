@@ -1,22 +1,25 @@
 server:
   port: 8085
+
+kafka:
+  topic:
+    shipping:
+      requested: shipping.requested
+      dlt: shipping.requested.dlt
+  group:
+    id:
+      shipping: shipping-requested
+
 spring:
   jackson:
     time-zone: Europe/Budapest
   kafka:
-    topic:
-      shipping:
-        requested: shipping.requested
-        dlt: shipping.requested.dlt
-    group:
-      id:
-        shipping: shipping-requested
+    bootstrap-servers: 127.0.0.1:29092
     retry:
       max-attempts: 5
       initial-interval-ms: 300
       multiplier: 2.5
       max-interval-ms: 3000
-    bootstrap-servers: 127.0.0.1:29092
     listener:
       ack-mode: record
       type: single
@@ -59,7 +62,6 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
 
-
 shipping:
   processing:
     success-rate: 0.98
@@ -67,7 +69,7 @@ shipping:
 chaos:
   retry:
     strategy: exponential
-    max-attempts: 4            
+    max-attempts: 4
     initial-interval-ms: 300
     multiplier: 2.0
     max-interval-ms: 5000

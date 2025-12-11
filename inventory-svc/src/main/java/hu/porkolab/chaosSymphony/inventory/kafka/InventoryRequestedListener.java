@@ -53,7 +53,7 @@ public class InventoryRequestedListener {
             include = {SocketTimeoutException.class, IllegalStateException.class},
             autoCreateTopics = "false"
     )
-    @KafkaListener(topics = "${spring.kafka.topic.inventory.requested}", groupId = "${spring.kafka.group.id.inventory}")
+    @KafkaListener(topics = "${kafka.topic.inventory.requested}", groupId = "${kafka.group.id.inventory}")
     @Transactional
     public void onInventoryRequested(ConsumerRecord<String, String> rec) throws Exception {
         long startTime = System.nanoTime();

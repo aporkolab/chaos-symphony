@@ -27,7 +27,7 @@ public class KafkaConsumerConfig {
     @Value("${spring.kafka.retry.initial-interval-ms}")
     private long initialInterval;
 
-    @Value("${spring.kafka.topic.inventory.dlt}")
+    @Value("${kafka.topic.inventory.dlt}")
     private String dltTopic;
 
     @Bean
