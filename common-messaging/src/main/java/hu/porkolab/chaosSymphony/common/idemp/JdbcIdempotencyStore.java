@@ -2,12 +2,8 @@ package hu.porkolab.chaosSymphony.common.idemp;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Component;
 
-@Component
-@ConditionalOnBean(JdbcTemplate.class)
 public class JdbcIdempotencyStore implements IdempotencyStore {
     
     private static final Logger log = LoggerFactory.getLogger(JdbcIdempotencyStore.class);

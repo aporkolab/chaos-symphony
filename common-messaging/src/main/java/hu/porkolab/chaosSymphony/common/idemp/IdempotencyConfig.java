@@ -17,4 +17,17 @@ public class IdempotencyConfig {
     public JdbcTemplate jdbcTemplate(DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
+
+    @Bean
+    @ConditionalOnBean(JdbcTemplate.class)
+    @ConditionalOnMissingBean(IdempotencyStore.class)
+    public IdempotencyStore jdbcIdempotencyStore(JdbcTemplate jdbcTemplate) {
+        return new JdbcIdempotencyStore(jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean({JdbcTemplate.class, IdempotencyStore.class})
+    public IdempotencyStore noopIdempotencyStore() {
+        return new NoopIdempotencyStore();
+    }
 }

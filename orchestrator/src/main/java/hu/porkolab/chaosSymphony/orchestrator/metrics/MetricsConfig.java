@@ -28,4 +28,18 @@ public class MetricsConfig {
 				.description("Number of orders failed")
 				.register(registry);
 	}
+
+	@Bean
+	public Counter compensationsTriggered(MeterRegistry registry) {
+		return Counter.builder("saga.compensations.triggered")
+				.description("Number of saga compensations triggered")
+				.register(registry);
+	}
+
+	@Bean
+	public Counter compensationsCompleted(MeterRegistry registry) {
+		return Counter.builder("saga.compensations.completed")
+				.description("Number of saga compensations completed")
+				.register(registry);
+	}
 }

@@ -4,15 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import hu.porkolab.chaosSymphony.common.idemp.IdempotencyStore;
 import hu.porkolab.chaosSymphony.orchestrator.saga.SagaInstance;
 import hu.porkolab.chaosSymphony.orchestrator.saga.SagaOrchestrator;
-import hu.porkolab.chaosSymphony.orchestrator.saga.SagaState;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class OrderCreatedListenerTest {
@@ -36,15 +34,14 @@ class OrderCreatedListenerTest {
     void onOrderCreated_shouldStartSagaAndSendPaymentRequest() throws Exception {
         when(idempotencyStore.markIfFirst(anyString())).thenReturn(true);
         SagaInstance mockSaga = mock(SagaInstance.class);
-        when(sagaOrchestrator.startSaga(anyString())).thenReturn(mockSaga);
+        when(sagaOrchestrator.startSagaAndRequestPayment(anyString(), any())).thenReturn(mockSaga);
 
         String payload = "{\"schema\":{\"type\":\"string\"},\"payload\":\"{\\\"orderId\\\":\\\"order-123\\\",\\\"total\\\":100.0,\\\"currency\\\":\\\"USD\\\",\\\"customerId\\\":\\\"cust-1\\\"}\"}";
         ConsumerRecord<String, String> record = new ConsumerRecord<>("order.created", 0, 0, "order-123", payload);
 
         listener.onOrderCreated(record);
 
-        verify(sagaOrchestrator).startSaga("order-123");
-        verify(mockSaga).transitionTo(SagaState.PAYMENT_PENDING);
+        verify(sagaOrchestrator).startSagaAndRequestPayment(eq("order-123"), isNull());
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(producer).sendPaymentRequested(eq("order-123"), captor.capture());
         assertThat(captor.getValue()).contains("\"orderId\":\"order-123\"");
@@ -58,7 +55,7 @@ class OrderCreatedListenerTest {
 
         listener.onOrderCreated(record);
 
-        verify(sagaOrchestrator, never()).startSaga(anyString());
+        verify(sagaOrchestrator, never()).startSagaAndRequestPayment(anyString(), any());
         verify(producer, never()).sendPaymentRequested(anyString(), anyString());
     }
 }
