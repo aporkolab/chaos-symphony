@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dlq-admin
+  labels:
+    app: dlq-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dlq-admin
+  template:
+    metadata:
+      labels:
+        app: dlq-admin
+    spec:
+      containers:
+      - name: dlq-admin
+        image: dlq-admin:latest
+        ports:
+        - containerPort: 8086

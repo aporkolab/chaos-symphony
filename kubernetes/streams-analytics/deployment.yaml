@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streams-analytics
+  labels:
+    app: streams-analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: streams-analytics
+  template:
+    metadata:
+      labels:
+        app: streams-analytics
+    spec:
+      containers:
+      - name: streams-analytics
+        image: streams-analytics:latest

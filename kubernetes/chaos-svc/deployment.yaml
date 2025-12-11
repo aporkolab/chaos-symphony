@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaos-svc
+  labels:
+    app: chaos-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chaos-svc
+  template:
+    metadata:
+      labels:
+        app: chaos-svc
+    spec:
+      containers:
+      - name: chaos-svc
+        image: chaos-svc:latest
+        ports:
+        - containerPort: 8088

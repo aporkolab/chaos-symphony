@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gameday-svc
+  labels:
+    app: gameday-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gameday-svc
+  template:
+    metadata:
+      labels:
+        app: gameday-svc
+    spec:
+      containers:
+      - name: gameday-svc
+        image: gameday-svc:latest
+        ports:
+        - containerPort: 8090

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: streams-analytics
+spec:
+  selector:
+    app: streams-analytics
+  clusterIP: None

@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ui-dashboard
+  labels:
+    app: ui-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ui-dashboard
+  template:
+    metadata:
+      labels:
+        app: ui-dashboard
+    spec:
+      containers:
+      - name: ui-dashboard
+        image: ui-dashboard:latest
+        ports:
+        - containerPort: 80
