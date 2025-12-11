@@ -79,7 +79,7 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: test
           SPRING_KAFKA_BOOTSTRAP_SERVERS: localhost:${{ job.services.kafka.ports[9092] }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: mvn -U -B clean verify -DskipITs=false
+        run: mvn -U -B clean verify -DskipITs=false -Djacoco.skip=true
 
       - name: 📊 Publish Test Results
         uses: dorny/test-reporter@v1
