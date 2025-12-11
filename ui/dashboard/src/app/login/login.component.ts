@@ -50,13 +50,13 @@ export class LoginComponent {
         if (token) this.tokenStorage.saveToken(token);
         this.tokenStorage.saveUser(data as any);
 
-        
-        window.location.href = '/';
+        this.isSubmitting = false;
+        this.router.navigate(['/']);
       },
       error: (err: any) => {
         this.errorMessage = err?.error?.message ?? 'Login failed.';
-      },
-      complete: () => (this.isSubmitting = false)
+        this.isSubmitting = false;
+      }
     });
   }
 }

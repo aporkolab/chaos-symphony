@@ -22,7 +22,7 @@ class CreateOrderTest {
 
     @Test
     void shouldCreateValidOrder() {
-        CreateOrder order = new CreateOrder("customer-1", BigDecimal.valueOf(100), "USD");
+        CreateOrder order = new CreateOrder("customer-1", BigDecimal.valueOf(100), "USD", null);
 
         assertThat(order.customerId()).isEqualTo("customer-1");
         assertThat(order.total()).isEqualByComparingTo(BigDecimal.valueOf(100));
@@ -31,7 +31,7 @@ class CreateOrderTest {
 
     @Test
     void shouldFailValidationForNullCustomerId() {
-        CreateOrder order = new CreateOrder(null, BigDecimal.valueOf(100), "USD");
+        CreateOrder order = new CreateOrder(null, BigDecimal.valueOf(100), "USD", null);
         var violations = validator.validate(order);
 
         assertThat(violations).isNotEmpty();
@@ -40,7 +40,7 @@ class CreateOrderTest {
 
     @Test
     void shouldFailValidationForBlankCustomerId() {
-        CreateOrder order = new CreateOrder("", BigDecimal.valueOf(100), "USD");
+        CreateOrder order = new CreateOrder("", BigDecimal.valueOf(100), "USD", null);
         var violations = validator.validate(order);
 
         assertThat(violations).isNotEmpty();
@@ -48,7 +48,7 @@ class CreateOrderTest {
 
     @Test
     void shouldFailValidationForNullTotal() {
-        CreateOrder order = new CreateOrder("customer-1", null, "USD");
+        CreateOrder order = new CreateOrder("customer-1", null, "USD", null);
         var violations = validator.validate(order);
 
         assertThat(violations).isNotEmpty();
@@ -57,7 +57,7 @@ class CreateOrderTest {
 
     @Test
     void shouldFailValidationForZeroTotal() {
-        CreateOrder order = new CreateOrder("customer-1", BigDecimal.ZERO, "USD");
+        CreateOrder order = new CreateOrder("customer-1", BigDecimal.ZERO, "USD", null);
         var violations = validator.validate(order);
 
         assertThat(violations).isNotEmpty();
@@ -65,7 +65,7 @@ class CreateOrderTest {
 
     @Test
     void shouldFailValidationForNegativeTotal() {
-        CreateOrder order = new CreateOrder("customer-1", BigDecimal.valueOf(-10), "USD");
+        CreateOrder order = new CreateOrder("customer-1", BigDecimal.valueOf(-10), "USD", null);
         var violations = validator.validate(order);
 
         assertThat(violations).isNotEmpty();
@@ -73,7 +73,7 @@ class CreateOrderTest {
 
     @Test
     void shouldFailValidationForNullCurrency() {
-        CreateOrder order = new CreateOrder("customer-1", BigDecimal.valueOf(100), null);
+        CreateOrder order = new CreateOrder("customer-1", BigDecimal.valueOf(100), null, null);
         var violations = validator.validate(order);
 
         assertThat(violations).isNotEmpty();
@@ -81,7 +81,7 @@ class CreateOrderTest {
 
     @Test
     void shouldAcceptMinimumValidTotal() {
-        CreateOrder order = new CreateOrder("customer-1", BigDecimal.valueOf(0.01), "EUR");
+        CreateOrder order = new CreateOrder("customer-1", BigDecimal.valueOf(0.01), "EUR", null);
         var violations = validator.validate(order);
 
         assertThat(violations).isEmpty();

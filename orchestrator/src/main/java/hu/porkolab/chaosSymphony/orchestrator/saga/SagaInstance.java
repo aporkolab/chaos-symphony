@@ -41,6 +41,9 @@ public class SagaInstance {
     @Column(name = "shipping_id", length = 36)
     private String shippingId;
 
+    @Column(name = "shipping_address", length = 500)
+    private String shippingAddress;
+
     @Column(name = "failure_reason", length = 500)
     private String failureReason;
 

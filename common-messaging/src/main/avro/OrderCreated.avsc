@@ -6,6 +6,7 @@
     { "name": "orderId", "type": "string" },
     { "name": "total", "type": "double" },
     { "name": "currency", "type": "string" },
-    { "name": "customerId", "type": ["null", "string"], "default": null }
+    { "name": "customerId", "type": ["null", "string"], "default": null },
+    { "name": "shippingAddress", "type": ["null", "string"], "default": null }
   ]
 }

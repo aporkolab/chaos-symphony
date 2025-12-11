@@ -39,6 +39,9 @@ public class Order {
     @Column(length = 64)
     private String customerId;
 
+    @Column(length = 500)
+    private String shippingAddress;
+
     @PrePersist
     void onCreate() {
         if (createdAt == null)

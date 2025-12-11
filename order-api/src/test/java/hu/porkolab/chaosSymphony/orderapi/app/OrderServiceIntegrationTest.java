@@ -63,7 +63,7 @@ class OrderServiceIntegrationTest {
         void createOrder_shouldSaveOrderAndOutboxEventAtomically() throws Exception {
             
             String customerId = "test-customer-123";
-            CreateOrder command = new CreateOrder(customerId, BigDecimal.valueOf(99.99), "USD");
+            CreateOrder command = new CreateOrder(customerId, BigDecimal.valueOf(99.99), "USD", null);
 
             
             OrderCreationResult result = orderService.createOrder(command);
@@ -103,7 +103,7 @@ class OrderServiceIntegrationTest {
         void shouldFlagHighValueOrder() {
             
             String customerId = "high-value-customer";
-            CreateOrder command = new CreateOrder(customerId, BigDecimal.valueOf(1500.00), "USD");
+            CreateOrder command = new CreateOrder(customerId, BigDecimal.valueOf(1500.00), "USD", null);
 
             
             OrderCreationResult result = orderService.createOrder(command);
@@ -132,7 +132,7 @@ class OrderServiceIntegrationTest {
         @DisplayName("Should approve pending order and publish event")
         void shouldApproveOrderAndPublishEvent() throws Exception {
             
-            CreateOrder command = new CreateOrder("customer", BigDecimal.valueOf(2000.00), "USD");
+            CreateOrder command = new CreateOrder("customer", BigDecimal.valueOf(2000.00), "USD", null);
             OrderCreationResult createResult = orderService.createOrder(command);
             assertThat(createResult.status()).isEqualTo(OrderStatus.PENDING_REVIEW);
             assertThat(outboxRepository.findAll()).isEmpty();
@@ -156,7 +156,7 @@ class OrderServiceIntegrationTest {
         @DisplayName("Should reject pending order without publishing event")
         void shouldRejectOrderWithoutPublishingEvent() {
             
-            CreateOrder command = new CreateOrder("customer", BigDecimal.valueOf(3000.00), "USD");
+            CreateOrder command = new CreateOrder("customer", BigDecimal.valueOf(3000.00), "USD", null);
             OrderCreationResult createResult = orderService.createOrder(command);
 
             
@@ -174,7 +174,7 @@ class OrderServiceIntegrationTest {
         @DisplayName("Should fail when approving non-pending order")
         void shouldFailWhenApprovingNonPendingOrder() {
             
-            CreateOrder command = new CreateOrder("customer", BigDecimal.valueOf(50.00), "USD");
+            CreateOrder command = new CreateOrder("customer", BigDecimal.valueOf(50.00), "USD", null);
             OrderCreationResult createResult = orderService.createOrder(command);
             assertThat(createResult.status()).isEqualTo(OrderStatus.NEW);
 

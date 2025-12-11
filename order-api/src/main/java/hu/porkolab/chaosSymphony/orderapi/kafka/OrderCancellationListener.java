@@ -13,12 +13,18 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Bean;
 
 import java.util.UUID;
 
 
 @Slf4j
 @Service
+@Import({
+    hu.porkolab.chaosSymphony.common.kafka.KafkaErrorHandlingConfig.class,
+    hu.porkolab.chaosSymphony.common.idemp.IdempotencyConfig.class
+})
 public class OrderCancellationListener {
 
     private static final String COMPENSATION_RESULT_TOPIC = "compensation.result";

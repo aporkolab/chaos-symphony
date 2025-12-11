@@ -48,7 +48,7 @@ class OrderControllerTest {
         @DisplayName("Should accept low-risk order with 202 status")
         void shouldAcceptLowRiskOrder() {
             UUID orderId = UUID.randomUUID();
-            CreateOrder command = new CreateOrder("customer-1", BigDecimal.valueOf(100), "USD");
+            CreateOrder command = new CreateOrder("customer-1", BigDecimal.valueOf(100), "USD", null);
             OrderCreationResult result = new OrderCreationResult(orderId, OrderStatus.NEW, null);
 
             when(orderService.createOrder(command)).thenReturn(result);
@@ -65,9 +65,9 @@ class OrderControllerTest {
         @DisplayName("Should flag high-value order for review with 200 status")
         void shouldFlagHighValueOrder() {
             UUID orderId = UUID.randomUUID();
-            CreateOrder command = new CreateOrder("customer-1", BigDecimal.valueOf(2000), "USD");
+            CreateOrder command = new CreateOrder("customer-1", BigDecimal.valueOf(2000), "USD", null);
             OrderCreationResult result = new OrderCreationResult(
-                    orderId, OrderStatus.PENDING_REVIEW, "High value order: $2000.00");
+                orderId, OrderStatus.PENDING_REVIEW, "High value order: $2000.00");
 
             when(orderService.createOrder(command)).thenReturn(result);
 
@@ -82,9 +82,9 @@ class OrderControllerTest {
         @DisplayName("Should reject high-risk order with 200 status")
         void shouldRejectHighRiskOrder() {
             UUID orderId = UUID.randomUUID();
-            CreateOrder command = new CreateOrder("fraud-customer", BigDecimal.valueOf(500), "USD");
+            CreateOrder command = new CreateOrder("fraud-customer", BigDecimal.valueOf(500), "USD", null);
             OrderCreationResult result = new OrderCreationResult(
-                    orderId, OrderStatus.REJECTED, "Auto-rejected: fraud score 95");
+                orderId, OrderStatus.REJECTED, "Auto-rejected: fraud score 95");
 
             when(orderService.createOrder(command)).thenReturn(result);
 
@@ -103,17 +103,17 @@ class OrderControllerTest {
         @DisplayName("Should return all orders sorted by creation date")
         void shouldGetAllOrders() {
             Order order1 = Order.builder()
-                    .id(UUID.randomUUID())
-                    .status(OrderStatus.NEW)
-                    .total(BigDecimal.valueOf(100))
-                    .createdAt(Instant.now())
-                    .build();
+                .id(UUID.randomUUID())
+                .status(OrderStatus.NEW)
+                .total(BigDecimal.valueOf(100))
+                .createdAt(Instant.now())
+                .build();
             Order order2 = Order.builder()
-                    .id(UUID.randomUUID())
-                    .status(OrderStatus.PAID)
-                    .total(BigDecimal.valueOf(200))
-                    .createdAt(Instant.now())
-                    .build();
+                .id(UUID.randomUUID())
+                .status(OrderStatus.PAID)
+                .total(BigDecimal.valueOf(200))
+                .createdAt(Instant.now())
+                .build();
 
             when(orderRepository.findAll(any(Sort.class))).thenReturn(List.of(order1, order2));
 
@@ -127,15 +127,15 @@ class OrderControllerTest {
         @DisplayName("Should return pending review orders")
         void shouldGetPendingReviewOrders() {
             Order pendingOrder = Order.builder()
-                    .id(UUID.randomUUID())
-                    .status(OrderStatus.PENDING_REVIEW)
-                    .total(BigDecimal.valueOf(1500))
-                    .reviewReason("High value")
-                    .createdAt(Instant.now())
-                    .build();
+                .id(UUID.randomUUID())
+                .status(OrderStatus.PENDING_REVIEW)
+                .total(BigDecimal.valueOf(1500))
+                .reviewReason("High value")
+                .createdAt(Instant.now())
+                .build();
 
             when(orderRepository.findByStatus(OrderStatus.PENDING_REVIEW))
-                    .thenReturn(List.of(pendingOrder));
+                .thenReturn(List.of(pendingOrder));
 
             List<Order> orders = controller.getPendingReviewOrders();
 
@@ -153,11 +153,11 @@ class OrderControllerTest {
         void shouldGetOrderById() {
             UUID orderId = UUID.randomUUID();
             Order order = Order.builder()
-                    .id(orderId)
-                    .status(OrderStatus.NEW)
-                    .total(BigDecimal.valueOf(100))
-                    .createdAt(Instant.now())
-                    .build();
+                .id(orderId)
+                .status(OrderStatus.NEW)
+                .total(BigDecimal.valueOf(100))
+                .createdAt(Instant.now())
+                .build();
 
             when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
@@ -188,11 +188,11 @@ class OrderControllerTest {
         void shouldApproveOrder() {
             UUID orderId = UUID.randomUUID();
             Order approvedOrder = Order.builder()
-                    .id(orderId)
-                    .status(OrderStatus.APPROVED)
-                    .total(BigDecimal.valueOf(1500))
-                    .createdAt(Instant.now())
-                    .build();
+                .id(orderId)
+                .status(OrderStatus.APPROVED)
+                .total(BigDecimal.valueOf(1500))
+                .createdAt(Instant.now())
+                .build();
 
             when(orderService.approveOrder(orderId)).thenReturn(approvedOrder);
 
@@ -206,7 +206,7 @@ class OrderControllerTest {
         void shouldReturn404WhenApprovingNonExistentOrder() {
             UUID orderId = UUID.randomUUID();
             when(orderService.approveOrder(orderId))
-                    .thenThrow(new IllegalArgumentException("Order not found"));
+                .thenThrow(new IllegalArgumentException("Order not found"));
 
             var response = controller.approveOrder(orderId);
 
@@ -218,7 +218,7 @@ class OrderControllerTest {
         void shouldReturn400WhenOrderCannotBeApproved() {
             UUID orderId = UUID.randomUUID();
             when(orderService.approveOrder(orderId))
-                    .thenThrow(new IllegalStateException("Order is not in PENDING_REVIEW status"));
+                .thenThrow(new IllegalStateException("Order is not in PENDING_REVIEW status"));
 
             var response = controller.approveOrder(orderId);
 
@@ -235,12 +235,12 @@ class OrderControllerTest {
         void shouldRejectOrder() {
             UUID orderId = UUID.randomUUID();
             Order rejectedOrder = Order.builder()
-                    .id(orderId)
-                    .status(OrderStatus.REJECTED)
-                    .reviewReason("Fraud confirmed")
-                    .total(BigDecimal.valueOf(1500))
-                    .createdAt(Instant.now())
-                    .build();
+                .id(orderId)
+                .status(OrderStatus.REJECTED)
+                .reviewReason("Fraud confirmed")
+                .total(BigDecimal.valueOf(1500))
+                .createdAt(Instant.now())
+                .build();
 
             when(orderService.rejectOrder(eq(orderId), anyString())).thenReturn(rejectedOrder);
 
@@ -256,12 +256,12 @@ class OrderControllerTest {
         void shouldRejectOrderWithDefaultReason() {
             UUID orderId = UUID.randomUUID();
             Order rejectedOrder = Order.builder()
-                    .id(orderId)
-                    .status(OrderStatus.REJECTED)
-                    .reviewReason("Rejected during manual review")
-                    .total(BigDecimal.valueOf(1500))
-                    .createdAt(Instant.now())
-                    .build();
+                .id(orderId)
+                .status(OrderStatus.REJECTED)
+                .reviewReason("Rejected during manual review")
+                .total(BigDecimal.valueOf(1500))
+                .createdAt(Instant.now())
+                .build();
 
             when(orderService.rejectOrder(eq(orderId), anyString())).thenReturn(rejectedOrder);
 
@@ -276,7 +276,7 @@ class OrderControllerTest {
         void shouldReturn404WhenRejectingNonExistentOrder() {
             UUID orderId = UUID.randomUUID();
             when(orderService.rejectOrder(eq(orderId), anyString()))
-                    .thenThrow(new IllegalArgumentException("Order not found"));
+                .thenThrow(new IllegalArgumentException("Order not found"));
 
             var response = controller.rejectOrder(orderId, null);
 
@@ -295,10 +295,10 @@ class OrderControllerTest {
             OrderCreationResult result = new OrderCreationResult(orderId, OrderStatus.NEW, null);
             when(orderService.createOrder(any(CreateOrder.class))).thenReturn(result);
 
-            var response = controller.startOrder(BigDecimal.valueOf(150), "customer-456");
+            var response = controller.startOrder(BigDecimal.valueOf(150), "customer-456", null);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody().orderId()).isEqualTo(orderId);
+            assertThat(((OrderController.OrderResponse) response.getBody()).orderId()).isEqualTo(orderId);
         }
     }
 }

@@ -41,6 +41,7 @@ public class OrderService {
                 .status(OrderStatus.NEW)
                 .total(total)
                 .customerId(cmd.customerId())
+                .shippingAddress(cmd.shippingAddress())
                 .createdAt(now)
                 .build();
 
@@ -117,6 +118,7 @@ public class OrderService {
                 .setTotal(order.getTotal().doubleValue())
                 .setCurrency("USD")
                 .setCustomerId(order.getCustomerId())
+                .setShippingAddress(order.getShippingAddress())
                 .build();
 
         try {

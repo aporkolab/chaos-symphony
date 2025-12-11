@@ -11,15 +11,18 @@ import java.time.Clock;
 
 @SpringBootApplication
 @OpenAPIDefinition(info = @Info(title = "Order API", version = "1.0", description = "API for creating and managing orders."))
-@Import(hu.porkolab.chaosSymphony.common.kafka.KafkaErrorHandlingConfig.class)
+@Import({
+    hu.porkolab.chaosSymphony.common.kafka.KafkaErrorHandlingConfig.class,
+    hu.porkolab.chaosSymphony.common.idemp.IdempotencyConfig.class
+})
 
 public class OrderApiApplication {
-	public static void main(String[] args) {
-		SpringApplication.run(OrderApiApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(OrderApiApplication.class, args);
+    }
 
-	@Bean
-	Clock clock() {
-		return Clock.systemUTC();
-	}
+    @Bean
+    Clock clock() {
+        return Clock.systemUTC();
+    }
 }
