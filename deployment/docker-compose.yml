@@ -8,6 +8,7 @@ networks:
 services:
   postgres:
     image: postgres:16-alpine
+    command: ["postgres", "-c", "wal_level=logical"]
     environment:
       POSTGRES_DB: "orders"
       POSTGRES_USER: "app"
@@ -67,6 +68,26 @@ services:
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       KEY_CONVERTER_SCHEMAS_ENABLE: "false"
       VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [chaos-net]
+
+  debezium-init:
+    image: curlimages/curl:latest
+    depends_on:
+      connect:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./init-debezium.sh:/init-debezium.sh:ro
+      - ./debezium-orders.json:/config/debezium-orders.json:ro
+    entrypoint: ["/bin/sh", "/init-debezium.sh"]
+    restart: "no"
     networks: [chaos-net]
 
   order-api:

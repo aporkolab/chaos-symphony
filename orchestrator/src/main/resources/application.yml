@@ -57,6 +57,10 @@ chaos:
     multiplier: 2.0
     max-interval-ms: 5000
 
+canary:
+  payment:
+    percentage: 0.0
+
 ---
 spring:
   config:
@@ -80,7 +84,3 @@ chaos:
     strategy: fixed
     max-attempts: 2
     initial-interval-ms: 200
-
-canary:
-  payment:
-    percentage: 0.0

@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @TestPropertySource(properties = {
     "spring.kafka.retry.max-attempts=3",
     "spring.kafka.retry.initial-interval-ms=500",
-    "spring.kafka.topic.shipping.dlt=shipping.dlt"
+    "kafka.topic.shipping.dlt=shipping.dlt"
 })
 class KafkaConsumerConfigTest {
 

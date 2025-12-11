@@ -1,13 +1,11 @@
 package hu.porkolab.chaosSymphony.chaos.api;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -21,22 +19,40 @@ public class CanaryController {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
-    private final String orchestratorEnvUrl;
 
     public CanaryController(
             ObjectMapper objectMapper,
-            @Value("${orchestrator.base-url:http://orchestrator:8091}") String orchestratorBaseUrl) {
+            @Value("${orchestrator.management-url:http://orchestrator:9091}") String orchestratorManagementUrl) {
         this.objectMapper = objectMapper;
-        this.orchestratorEnvUrl = orchestratorBaseUrl + "/actuator/env";
         this.webClient = WebClient.builder()
-                .baseUrl(orchestratorBaseUrl)
+                .baseUrl(orchestratorManagementUrl)
                 .build();
     }
 
     public record CanaryConfig(boolean enabled, double percentage) {}
 
+    @GetMapping("/config")
+    public Mono<CanaryConfig> getCanaryConfig() {
+        return webClient.get()
+                .uri("/actuator/env/canary.payment.percentage")
+                .retrieve()
+                .bodyToMono(String.class)
+                .map(response -> {
+                    try {
+                        JsonNode root = objectMapper.readTree(response);
+                        JsonNode propNode = root.path("property").path("value");
+                        double percentage = propNode.isMissingNode() ? 0.0 : propNode.asDouble(0.0);
+                        return new CanaryConfig(percentage > 0, percentage);
+                    } catch (Exception e) {
+                        log.warn("Failed to parse canary config response: {}", e.getMessage());
+                        return new CanaryConfig(false, 0.0);
+                    }
+                })
+                .onErrorReturn(new CanaryConfig(false, 0.0));
+    }
+
     @PostMapping("/config")
-    public Mono<Void> configureCanary(@RequestBody CanaryConfig config) {
+    public Mono<CanaryConfig> configureCanary(@RequestBody CanaryConfig config) {
         log.info("Setting canary mode to enabled={} with percentage={}", config.enabled(), config.percentage());
 
         double percentageToSet = config.enabled() ? config.percentage() : 0.0;
@@ -50,6 +66,6 @@ public class CanaryController {
                 .bodyToMono(String.class)
                 .doOnSuccess(response -> log.info("Orchestrator canary config updated successfully."))
                 .doOnError(error -> log.error("Failed to update orchestrator canary config: {}", error.getMessage()))
-                .then();
+                .thenReturn(new CanaryConfig(config.enabled(), percentageToSet));
     }
 }

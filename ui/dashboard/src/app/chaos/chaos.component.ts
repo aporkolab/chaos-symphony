@@ -35,6 +35,19 @@ export class ChaosComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadRules();
+    this.loadCanaryState();
+  }
+
+  loadCanaryState(): void {
+    this.chaosService.getCanary().subscribe({
+      next: (config) => {
+        this.canaryEnabled = config.enabled;
+      },
+      error: (err) => {
+        console.warn('Failed to load canary state', err);
+        this.canaryEnabled = false;
+      }
+    });
   }
 
   loadRules(): void {
@@ -50,7 +63,7 @@ export class ChaosComponent implements OnInit {
   editRule(topic: string): void {
     const rule = this.rules[topic];
     if (rule) {
-      // Need to add topic since it's part of the form but not the rule object
+      
       const formData = { topic, ...rule };
       this.ruleForm.setValue(formData);
     }
@@ -67,7 +80,7 @@ export class ChaosComponent implements OnInit {
     this.chaosService.updateRule(topic, rule)
       .pipe(finalize(() => this.isLoading = false))
       .subscribe(() => {
-        this.loadRules(); // Refresh the list after update
+        this.loadRules(); 
         this.ruleForm.reset({
           topic: '', pDrop: 0, pDup: 0, maxDelayMs: 0, pCorrupt: 0
         });
@@ -85,14 +98,17 @@ export class ChaosComponent implements OnInit {
 
   onCanaryToggle(): void {
     this.isLoading = true;
-    // The service takes the desired state, so we use the current model value
+    
     this.chaosService.setCanary(this.canaryEnabled, 0.05)
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
-        next: () => console.log(`Canary toggled to ${this.canaryEnabled}`),
+        next: (response) => {
+          this.canaryEnabled = response.enabled;
+          console.log(`Canary toggled to ${this.canaryEnabled}`);
+        },
         error: (err) => {
           console.error('Failed to toggle canary', err);
-          // Revert the toggle on error
+          
           this.canaryEnabled = !this.canaryEnabled;
         }
       });

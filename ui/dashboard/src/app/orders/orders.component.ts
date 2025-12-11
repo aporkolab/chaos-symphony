@@ -1,7 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { OrderService } from './order.service';
-import { finalize } from 'rxjs';
+import { finalize, interval, Subscription, switchMap } from 'rxjs';
 import { CommonModule } from '@angular/common';
 
 interface OrderResponse {
@@ -17,11 +17,12 @@ interface OrderResponse {
   templateUrl: './orders.component.html',
   styleUrls: ['./orders.component.css']
 })
-export class OrdersComponent implements OnInit {
+export class OrdersComponent implements OnInit, OnDestroy {
 
   orderForm: FormGroup;
   isLoading = false;
   recentOrders: OrderResponse[] = [];
+  private pollSubscription?: Subscription;
 
   constructor(
     private fb: FormBuilder,
@@ -35,6 +36,37 @@ export class OrdersComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadOrders();
+    
+    this.pollSubscription = interval(3000).pipe(
+      switchMap(() => this.orderService.getOrders())
+    ).subscribe({
+      next: (orders) => this.updateOrders(orders),
+      error: (err) => console.error('Failed to poll orders', err)
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.pollSubscription?.unsubscribe();
+  }
+
+  loadOrders(): void {
+    this.orderService.getOrders().subscribe({
+      next: (orders) => this.updateOrders(orders),
+      error: (err) => console.error('Failed to load orders', err)
+    });
+  }
+
+  private updateOrders(orders: any[]): void {
+    
+    this.recentOrders = orders
+      .slice(-10)
+      .reverse()
+      .map(o => ({
+        orderId: o.id || o.orderId,
+        status: o.status,
+        reviewReason: o.reviewReason
+      }));
   }
 
   onSubmit(): void {
@@ -49,11 +81,9 @@ export class OrdersComponent implements OnInit {
         next: (response: OrderResponse) => {
           
           this.recentOrders.unshift(response);
-          
           if (this.recentOrders.length > 10) {
             this.recentOrders.pop();
           }
-          
           this.orderForm.patchValue({ total: Math.round(100 + Math.random() * 2000) });
         },
         error: (err) => {
