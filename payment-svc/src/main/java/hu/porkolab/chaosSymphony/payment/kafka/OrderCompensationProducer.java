@@ -15,6 +15,12 @@ public class OrderCompensationProducer {
 
 	public void sendCompensation(String key, String payload) {
 		log.warn("Sending order compensation for key [{}]: {}", key, payload);
-		kafkaTemplate.send(TOPIC, key, payload);
+		kafkaTemplate.send(TOPIC, key, payload)
+			.whenComplete((result, ex) -> {
+				if (ex != null) {
+					log.error("CRITICAL: Failed to send order compensation for key [{}]: {}", 
+						key, ex.getMessage(), ex);
+				}
+			});
 	}
 }

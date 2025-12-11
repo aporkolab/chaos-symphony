@@ -29,11 +29,11 @@ public class PaymentRefundListener {
     private final Counter refundsProcessed;
 
     public PaymentRefundListener(
-        ObjectMapper objectMapper,
-        IdempotencyStore idempotencyStore,
-        PaymentStatusStore paymentStatusStore,
-        KafkaTemplate<String, String> kafkaTemplate,
-        MeterRegistry meterRegistry) {
+            ObjectMapper objectMapper,
+            IdempotencyStore idempotencyStore,
+            PaymentStatusStore paymentStatusStore,
+            KafkaTemplate<String, String> kafkaTemplate,
+            MeterRegistry meterRegistry) {
         this.objectMapper = objectMapper;
         this.idempotencyStore = idempotencyStore;
         this.paymentStatusStore = paymentStatusStore;
@@ -45,7 +45,7 @@ public class PaymentRefundListener {
     @Transactional
     public void onPaymentRefund(ConsumerRecord<String, String> record) {
         String idempotencyKey = "payment.refund:" + record.key();
-
+        
         if (!idempotencyStore.markIfFirst(idempotencyKey)) {
             log.warn("Duplicate payment refund request, skipping: {}", record.key());
             return;
@@ -54,7 +54,7 @@ public class PaymentRefundListener {
         try {
             EventEnvelope envelope = EnvelopeHelper.parse(record.value());
             JsonNode msg = objectMapper.readTree(envelope.getPayload());
-
+            
             String orderId = msg.path("orderId").asText(null);
             String paymentId = msg.path("paymentId").asText(null);
             String reason = msg.path("reason").asText("Saga compensation");
@@ -64,12 +64,12 @@ public class PaymentRefundListener {
                 return;
             }
 
-            log.info("Processing payment refund: orderId={}, paymentId={}, reason={}",
-                orderId, paymentId, reason);
+            log.info("Processing payment refund: orderId={}, paymentId={}, reason={}", 
+                    orderId, paymentId, reason);
 
             
             String currentStatus = paymentStatusStore.getStatus(orderId).orElse("UNKNOWN");
-
+            
             if ("CHARGED".equals(currentStatus)) {
                 
                 paymentStatusStore.save(orderId, "REFUNDED");
@@ -78,8 +78,8 @@ public class PaymentRefundListener {
             } else if ("REFUNDED".equals(currentStatus)) {
                 log.warn("Payment for order {} already refunded, skipping", orderId);
             } else {
-                log.warn("Cannot refund payment for order {}: current status is {}",
-                    orderId, currentStatus);
+                log.warn("Cannot refund payment for order {}: current status is {}", 
+                        orderId, currentStatus);
             }
 
             
@@ -100,17 +100,23 @@ public class PaymentRefundListener {
     private void sendCompensationResult(String orderId, String compensationType, boolean success) {
         try {
             String payload = objectMapper.createObjectNode()
-                .put("orderId", orderId)
-                .put("compensationType", compensationType)
-                .put("success", success)
-                .put("service", "payment-svc")
-                .toString();
+                    .put("orderId", orderId)
+                    .put("compensationType", compensationType)
+                    .put("success", success)
+                    .put("service", "payment-svc")
+                    .toString();
 
             String envelope = EnvelopeHelper.envelope(orderId, "CompensationResult", payload);
-            kafkaTemplate.send(COMPENSATION_RESULT_TOPIC, orderId, envelope);
-            log.debug("Compensation result sent for orderId={}, type={}", orderId, compensationType);
+            kafkaTemplate.send(COMPENSATION_RESULT_TOPIC, orderId, envelope)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to send compensation result for orderId={}: {}", orderId, ex.getMessage());
+                    } else {
+                        log.debug("Compensation result sent for orderId={}, type={}", orderId, compensationType);
+                    }
+                });
         } catch (Exception e) {
-            log.error("Failed to send compensation result for orderId={}: {}", orderId, e.getMessage());
+            log.error("Failed to build compensation result for orderId={}: {}", orderId, e.getMessage());
         }
     }
 }

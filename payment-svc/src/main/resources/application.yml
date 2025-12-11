@@ -83,7 +83,7 @@ payment:
 chaos:
   retry:
     strategy: exponential
-    max-attempts: 4
+    max-attempts: 4            
     initial-interval-ms: 300
     multiplier: 2.0
     max-interval-ms: 5000

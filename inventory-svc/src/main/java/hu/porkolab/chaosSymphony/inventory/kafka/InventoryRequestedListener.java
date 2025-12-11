@@ -31,17 +31,17 @@ public class InventoryRequestedListener {
     private final Counter messagesProcessed;
     private final Timer processingTime;
     private final ObjectMapper objectMapper;
-
+    
     @Value("${inventory.processing.success-rate:0.95}")
     private double successRate;
 
     public InventoryRequestedListener(
-        InventoryResultProducer producer,
-        IdempotencyStore idempotencyStore,
-        InventoryReleaseListener releaseListener,
-        Counter messagesProcessed,
-        Timer processingTime,
-        ObjectMapper objectMapper) {
+            InventoryResultProducer producer,
+            IdempotencyStore idempotencyStore,
+            InventoryReleaseListener releaseListener,
+            Counter messagesProcessed,
+            Timer processingTime,
+            ObjectMapper objectMapper) {
         this.producer = producer;
         this.idempotencyStore = idempotencyStore;
         this.releaseListener = releaseListener;
@@ -51,10 +51,10 @@ public class InventoryRequestedListener {
     }
 
     @RetryableTopic(
-        attempts = "4",
-        backoff = @Backoff(delay = 1000, multiplier = 2.0, random = true),
-        include = {SocketTimeoutException.class},
-        autoCreateTopics = "false"
+            attempts = "4",
+            backoff = @Backoff(delay = 1000, multiplier = 2.0, random = true),
+            include = {SocketTimeoutException.class},
+            autoCreateTopics = "false"
     )
     @KafkaListener(topics = "${kafka.topic.inventory.requested}", groupId = "${kafka.group.id.inventory}")
     @Transactional
@@ -62,7 +62,7 @@ public class InventoryRequestedListener {
         long startTime = System.nanoTime();
         try {
             messagesProcessed.increment();
-
+            
             if (!idempotencyStore.markIfFirst(rec.key())) {
                 log.warn("Duplicate message detected, skipping: {}", rec.key());
                 return;
@@ -91,42 +91,42 @@ public class InventoryRequestedListener {
 
                 String status = "RESERVED";
                 String reservationId = java.util.UUID.randomUUID().toString();
-
+                
                 
                 releaseListener.trackReservation(orderId, reservationId);
-
+                
                 String resultPayload = objectMapper.createObjectNode()
-                    .put("orderId", orderId)
-                    .put("reservationId", reservationId)
-                    .put("status", status)
-                    .put("items", items)
-                    .toString();
+                        .put("orderId", orderId)
+                        .put("reservationId", reservationId)
+                        .put("status", status)
+                        .put("items", items)
+                        .toString();
 
                 log.info("Inventory processed for orderId={}, reservationId={}, items={}, status={}", orderId, reservationId, items, status);
                 producer.sendResult(orderId, resultPayload);
             } catch (IllegalStateException | IllegalArgumentException e) {
                 
                 String resultPayload = objectMapper.createObjectNode()
-                    .put("orderId", orderId)
-                    .put("status", "OUT_OF_STOCK")
-                    .put("reason", e.getMessage())
-                    .toString();
+                        .put("orderId", orderId)
+                        .put("status", "OUT_OF_STOCK")
+                        .put("reason", e.getMessage())
+                        .toString();
 
                 log.warn("Inventory unavailable for orderId={}: {}", orderId, e.getMessage());
                 producer.sendResult(orderId, resultPayload);
             }
-
+            
         } finally {
             processingTime.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS);
         }
     }
 
-
+    
     private void validateAndReserveInventory(String orderId, int items) {
         if (items <= 0) {
             throw new IllegalArgumentException("Invalid item count for order: " + orderId);
         }
-
+        
         boolean success = ThreadLocalRandom.current().nextDouble() < successRate;
         if (!success) {
             throw new IllegalStateException("Inventory unavailable for order: " + orderId);

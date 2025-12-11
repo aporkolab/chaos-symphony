@@ -15,6 +15,14 @@ public class InventoryRequestProducer {
 
 	public void sendRequest(String key, String payload) {
 		log.debug("Sending inventory request for key [{}]: {}", key, payload);
-		kafkaTemplate.send(TOPIC, key, payload);
+		kafkaTemplate.send(TOPIC, key, payload)
+			.whenComplete((result, ex) -> {
+				if (ex != null) {
+					log.error("CRITICAL: Failed to send inventory request for key [{}]: {}", 
+						key, ex.getMessage(), ex);
+				} else {
+					log.debug("Inventory request sent successfully for key [{}]", key);
+				}
+			});
 	}
 }

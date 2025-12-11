@@ -29,10 +29,10 @@ public class OrderCancellationListener {
     private final KafkaTemplate<String, String> kafkaTemplate;
 
     public OrderCancellationListener(
-        OrderRepository orderRepository,
-        ObjectMapper objectMapper,
-        IdempotencyStore idempotencyStore,
-        KafkaTemplate<String, String> kafkaTemplate) {
+            OrderRepository orderRepository,
+            ObjectMapper objectMapper,
+            IdempotencyStore idempotencyStore,
+            KafkaTemplate<String, String> kafkaTemplate) {
         this.orderRepository = orderRepository;
         this.objectMapper = objectMapper;
         this.idempotencyStore = idempotencyStore;
@@ -43,7 +43,7 @@ public class OrderCancellationListener {
     @Transactional
     public void onOrderCancel(ConsumerRecord<String, String> record) {
         String idempotencyKey = "order.cancel:" + record.key();
-
+        
         if (!idempotencyStore.markIfFirst(idempotencyKey)) {
             log.warn("Duplicate order cancellation request, skipping: {}", record.key());
             return;
@@ -52,7 +52,7 @@ public class OrderCancellationListener {
         try {
             EventEnvelope envelope = EnvelopeHelper.parse(record.value());
             JsonNode msg = objectMapper.readTree(envelope.getPayload());
-
+            
             String orderId = msg.path("orderId").asText(null);
             String reason = msg.path("reason").asText("Saga compensation");
 
@@ -79,8 +79,8 @@ public class OrderCancellationListener {
                         orderRepository.save(order);
                         log.info("Order {} cancelled successfully", orderId);
                     } else {
-                        log.warn("Order {} already in terminal state: {}, skipping cancellation",
-                            orderId, order.getStatus());
+                        log.warn("Order {} already in terminal state: {}, skipping cancellation", 
+                                orderId, order.getStatus());
                     }
                 },
                 () -> log.warn("Order not found for cancellation: {}", orderId)
@@ -104,17 +104,23 @@ public class OrderCancellationListener {
     private void sendCompensationResult(String orderId, String compensationType, boolean success) {
         try {
             String payload = objectMapper.createObjectNode()
-                .put("orderId", orderId)
-                .put("compensationType", compensationType)
-                .put("success", success)
-                .put("service", "order-api")
-                .toString();
+                    .put("orderId", orderId)
+                    .put("compensationType", compensationType)
+                    .put("success", success)
+                    .put("service", "order-api")
+                    .toString();
 
             String envelope = EnvelopeHelper.envelope(orderId, "CompensationResult", payload);
-            kafkaTemplate.send(COMPENSATION_RESULT_TOPIC, orderId, envelope);
-            log.debug("Compensation result sent for orderId={}, type={}", orderId, compensationType);
+            kafkaTemplate.send(COMPENSATION_RESULT_TOPIC, orderId, envelope)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to send compensation result for orderId={}: {}", orderId, ex.getMessage());
+                    } else {
+                        log.debug("Compensation result sent for orderId={}, type={}", orderId, compensationType);
+                    }
+                });
         } catch (Exception e) {
-            log.error("Failed to send compensation result for orderId={}: {}", orderId, e.getMessage());
+            log.error("Failed to build compensation result for orderId={}: {}", orderId, e.getMessage());
         }
     }
 }

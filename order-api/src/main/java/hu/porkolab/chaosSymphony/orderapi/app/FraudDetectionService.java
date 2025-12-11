@@ -9,10 +9,10 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 
 @Slf4j
@@ -54,7 +54,7 @@ public class FraudDetectionService {
             BigDecimal valueScore = calculateValueRiskScore(order.getTotal());
             score = score.add(valueScore);
             reasons.add(String.format("High value order: $%.2f (score +%.1f)",
-                order.getTotal(), valueScore));
+                    order.getTotal(), valueScore));
         }
 
         
@@ -89,19 +89,19 @@ public class FraudDetectionService {
         if (action == FraudAction.REJECT) {
             ordersAutoRejected.increment();
             log.warn("Order {} auto-rejected. Score: {}, Reasons: {}",
-                order.getId(), score, reasons);
+                    order.getId(), score, reasons);
         } else if (action == FraudAction.REVIEW) {
             ordersFlagged.increment();
             log.info("Order {} flagged for review. Score: {}, Reasons: {}",
-                order.getId(), score, reasons);
+                    order.getId(), score, reasons);
         } else {
             log.debug("Order {} passed fraud check. Score: {}", order.getId(), score);
         }
 
         return new FraudCheckResult(
-            score.setScale(2, RoundingMode.HALF_UP),
-            action,
-            String.join("; ", reasons)
+                score.setScale(2, RoundingMode.HALF_UP),
+                action,
+                String.join("; ", reasons)
         );
     }
 
@@ -125,8 +125,8 @@ public class FraudDetectionService {
 
         long windowStart = System.currentTimeMillis() - (velocityWindowMinutes * 60 * 1000L);
         long recentOrders = timestamps.stream()
-            .filter(ts -> ts > windowStart)
-            .count();
+                .filter(ts -> ts > windowStart)
+                .count();
 
         if (recentOrders >= velocityMaxOrders) {
             return new BigDecimal("40.00"); 
@@ -138,8 +138,8 @@ public class FraudDetectionService {
 
     private void recordOrderTimestamp(String customerId) {
         customerOrderTimestamps
-            .computeIfAbsent(customerId, k -> new CopyOnWriteArrayList<>())
-            .add(System.currentTimeMillis());
+                .computeIfAbsent(customerId, k -> new CopyOnWriteArrayList<>())
+                .add(System.currentTimeMillis());
 
         
         long windowStart = System.currentTimeMillis() - (velocityWindowMinutes * 60 * 1000L);
@@ -150,7 +150,7 @@ public class FraudDetectionService {
         
         BigDecimal remainder = amount.remainder(new BigDecimal("100"));
         return remainder.compareTo(BigDecimal.ZERO) == 0
-            || remainder.compareTo(new BigDecimal("50")) == 0;
+                || remainder.compareTo(new BigDecimal("50")) == 0;
     }
 
     private FraudAction determineAction(BigDecimal score, BigDecimal total) {
@@ -161,7 +161,7 @@ public class FraudDetectionService {
 
         
         if (score.compareTo(REVIEW_SCORE_THRESHOLD) >= 0
-            || total.compareTo(HIGH_VALUE_THRESHOLD) > 0) {
+                || total.compareTo(HIGH_VALUE_THRESHOLD) > 0) {
             return FraudAction.REVIEW;
         }
 
@@ -170,9 +170,9 @@ public class FraudDetectionService {
 
     
     public record FraudCheckResult(
-        BigDecimal score,
-        FraudAction action,
-        String reason
+            BigDecimal score,
+            FraudAction action,
+            String reason
     ) {
         public boolean requiresReview() {
             return action == FraudAction.REVIEW;

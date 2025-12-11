@@ -27,18 +27,21 @@ class InventoryRequestedListenerTest {
 
     @Mock
     private InventoryResultProducer producer;
-    
+
+    @Mock
+    private InventoryReleaseListener releaseListener;
+
     @Mock
     private IdempotencyStore idempotencyStore;
-    
+
     @Mock
     private Counter messagesProcessed;
-    
+
     @Mock
     private Timer processingTime;
-    
+
     private ObjectMapper objectMapper;
-    
+
     private InventoryRequestedListener listener;
 
     private static final String ORDER_ID = "test-order-123";
@@ -55,53 +58,57 @@ class InventoryRequestedListenerTest {
     void setUp() {
         objectMapper = new ObjectMapper();
         listener = new InventoryRequestedListener(
-                producer, 
-                idempotencyStore, 
-                messagesProcessed, 
-                processingTime,
-                objectMapper
+            producer,
+            idempotencyStore,
+            releaseListener,
+            messagesProcessed,
+            processingTime,
+            objectMapper
         );
-        
+
         ReflectionTestUtils.setField(listener, "successRate", 1.0);
     }
 
     @Test
     @DisplayName("Should process valid inventory request and send result")
     void shouldProcessValidInventoryRequest() throws Exception {
-        
+
         ConsumerRecord<String, String> record = new ConsumerRecord<>(
-                "inventory.requested", 0, 0, ORDER_ID, VALID_ENVELOPE);
+            "inventory.requested", 0, 0, ORDER_ID, VALID_ENVELOPE);
         when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
-        
-        
+
+
         listener.onInventoryRequested(record);
-        
-        
+
+
         verify(messagesProcessed).increment();
         verify(idempotencyStore).markIfFirst(ORDER_ID);
+
         
+        verify(releaseListener).trackReservation(eq(ORDER_ID), anyString());
+
         ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
         verify(producer).sendResult(eq(ORDER_ID), payloadCaptor.capture());
-        
+
         String resultPayload = payloadCaptor.getValue();
         assertThat(resultPayload).contains("\"status\":\"RESERVED\"");
         assertThat(resultPayload).contains("\"items\":5");
-        
+
         verify(processingTime).record(anyLong(), eq(TimeUnit.NANOSECONDS));
     }
 
     @Test
     @DisplayName("Should skip duplicate messages")
     void shouldSkipDuplicateMessages() throws Exception {
-        
+
         ConsumerRecord<String, String> record = new ConsumerRecord<>(
-                "inventory.requested", 0, 0, ORDER_ID, VALID_ENVELOPE);
+            "inventory.requested", 0, 0, ORDER_ID, VALID_ENVELOPE);
         when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(false);
-        
-        
+
+
         listener.onInventoryRequested(record);
-        
-        
+
+
         verify(messagesProcessed).increment();
         verify(idempotencyStore).markIfFirst(ORDER_ID);
         verify(producer, never()).sendResult(anyString(), anyString());
@@ -110,7 +117,7 @@ class InventoryRequestedListenerTest {
     @Test
     @DisplayName("Should reject invalid item count")
     void shouldRejectInvalidItemCount() {
-        
+
         String invalidEnvelope = """
                 {
                     "orderId": "%s",
@@ -120,36 +127,36 @@ class InventoryRequestedListenerTest {
                 }
                 """.formatted(ORDER_ID);
         ConsumerRecord<String, String> record = new ConsumerRecord<>(
-                "inventory.requested", 0, 0, ORDER_ID, invalidEnvelope);
+            "inventory.requested", 0, 0, ORDER_ID, invalidEnvelope);
         when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
-        
-        
+
+
         assertThatThrownBy(() -> listener.onInventoryRequested(record))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Invalid item count");
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Invalid item count");
     }
 
     @Test
     @DisplayName("Should throw when inventory unavailable")
     void shouldThrowWhenInventoryUnavailable() {
-        
+
         ConsumerRecord<String, String> record = new ConsumerRecord<>(
-                "inventory.requested", 0, 0, ORDER_ID, VALID_ENVELOPE);
+            "inventory.requested", 0, 0, ORDER_ID, VALID_ENVELOPE);
         when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
-        
-        
+
+
         ReflectionTestUtils.setField(listener, "successRate", 0.0);
-        
-        
+
+
         assertThatThrownBy(() -> listener.onInventoryRequested(record))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Inventory unavailable");
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Inventory unavailable");
     }
 
     @Test
     @DisplayName("Should use default item count when not specified")
     void shouldUseDefaultItemCount() throws Exception {
-        
+
         String envelopeWithoutItems = """
                 {
                     "orderId": "%s",
@@ -159,17 +166,19 @@ class InventoryRequestedListenerTest {
                 }
                 """.formatted(ORDER_ID);
         ConsumerRecord<String, String> record = new ConsumerRecord<>(
-                "inventory.requested", 0, 0, ORDER_ID, envelopeWithoutItems);
+            "inventory.requested", 0, 0, ORDER_ID, envelopeWithoutItems);
         when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
-        
-        
+
+
         listener.onInventoryRequested(record);
-        
-        
+
+
+        verify(releaseListener).trackReservation(eq(ORDER_ID), anyString());
+
         ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
         verify(producer).sendResult(eq(ORDER_ID), payloadCaptor.capture());
-        
+
         String resultPayload = payloadCaptor.getValue();
-        assertThat(resultPayload).contains("\"items\":1"); 
+        assertThat(resultPayload).contains("\"items\":1");
     }
 }

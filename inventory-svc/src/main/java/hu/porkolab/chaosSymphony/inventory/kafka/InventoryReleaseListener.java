@@ -18,7 +18,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 
-
 @Slf4j
 @Service
 public class InventoryReleaseListener {
@@ -29,15 +28,15 @@ public class InventoryReleaseListener {
     private final IdempotencyStore idempotencyStore;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final Counter releasesProcessed;
-
+    
     
     private final Map<String, String> reservationStore = new ConcurrentHashMap<>();
 
     public InventoryReleaseListener(
-        ObjectMapper objectMapper,
-        IdempotencyStore idempotencyStore,
-        KafkaTemplate<String, String> kafkaTemplate,
-        MeterRegistry meterRegistry) {
+            ObjectMapper objectMapper,
+            IdempotencyStore idempotencyStore,
+            KafkaTemplate<String, String> kafkaTemplate,
+            MeterRegistry meterRegistry) {
         this.objectMapper = objectMapper;
         this.idempotencyStore = idempotencyStore;
         this.kafkaTemplate = kafkaTemplate;
@@ -48,7 +47,7 @@ public class InventoryReleaseListener {
     @Transactional
     public void onInventoryRelease(ConsumerRecord<String, String> record) {
         String idempotencyKey = "inventory.release:" + record.key();
-
+        
         if (!idempotencyStore.markIfFirst(idempotencyKey)) {
             log.warn("Duplicate inventory release request, skipping: {}", record.key());
             return;
@@ -57,7 +56,7 @@ public class InventoryReleaseListener {
         try {
             EventEnvelope envelope = EnvelopeHelper.parse(record.value());
             JsonNode msg = objectMapper.readTree(envelope.getPayload());
-
+            
             String orderId = msg.path("orderId").asText(null);
             String reservationId = msg.path("reservationId").asText(null);
             String reason = msg.path("reason").asText("Saga compensation");
@@ -67,16 +66,16 @@ public class InventoryReleaseListener {
                 return;
             }
 
-            log.info("Processing inventory release: orderId={}, reservationId={}, reason={}",
-                orderId, reservationId, reason);
+            log.info("Processing inventory release: orderId={}, reservationId={}, reason={}", 
+                    orderId, reservationId, reason);
 
             
             String previousReservation = reservationStore.remove(orderId);
-
+            
             if (previousReservation != null || reservationId != null) {
                 releasesProcessed.increment();
-                log.info("Inventory reservation {} released for order {}",
-                    reservationId != null ? reservationId : previousReservation, orderId);
+                log.info("Inventory reservation {} released for order {}", 
+                        reservationId != null ? reservationId : previousReservation, orderId);
             } else {
                 log.warn("No reservation found to release for order {}", orderId);
             }
@@ -104,17 +103,23 @@ public class InventoryReleaseListener {
     private void sendCompensationResult(String orderId, String compensationType, boolean success) {
         try {
             String payload = objectMapper.createObjectNode()
-                .put("orderId", orderId)
-                .put("compensationType", compensationType)
-                .put("success", success)
-                .put("service", "inventory-svc")
-                .toString();
+                    .put("orderId", orderId)
+                    .put("compensationType", compensationType)
+                    .put("success", success)
+                    .put("service", "inventory-svc")
+                    .toString();
 
             String envelope = EnvelopeHelper.envelope(orderId, "CompensationResult", payload);
-            kafkaTemplate.send(COMPENSATION_RESULT_TOPIC, orderId, envelope);
-            log.debug("Compensation result sent for orderId={}, type={}", orderId, compensationType);
+            kafkaTemplate.send(COMPENSATION_RESULT_TOPIC, orderId, envelope)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to send compensation result for orderId={}: {}", orderId, ex.getMessage());
+                    } else {
+                        log.debug("Compensation result sent for orderId={}, type={}", orderId, compensationType);
+                    }
+                });
         } catch (Exception e) {
-            log.error("Failed to send compensation result for orderId={}: {}", orderId, e.getMessage());
+            log.error("Failed to build compensation result for orderId={}: {}", orderId, e.getMessage());
         }
     }
 }

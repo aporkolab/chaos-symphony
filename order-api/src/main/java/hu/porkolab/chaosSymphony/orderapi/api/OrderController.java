@@ -123,10 +123,23 @@ public class OrderController {
     @PostMapping("/start")
     @Operation(summary = "Quick order creation for demo",
             description = "Creates an order with specified amount. Use amounts > $1000 to trigger fraud review.")
-    public ResponseEntity<OrderResponse> startOrder(
+    public ResponseEntity<?> startOrder(
             @RequestParam(defaultValue = "100.0") BigDecimal amount,
-            @RequestParam(defaultValue = "customer-123") String customerId) {
-        CreateOrder command = new CreateOrder(customerId, amount, "USD");
+            @RequestParam(defaultValue = "customer-123") String customerId,
+            @RequestParam(required = false) String shippingAddress) {
+        
+        if (amount == null || amount.compareTo(BigDecimal.valueOf(0.01)) < 0) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Amount must be at least 0.01"
+            ));
+        }
+        if (customerId == null || customerId.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "CustomerId cannot be empty"
+            ));
+        }
+        
+        CreateOrder command = new CreateOrder(customerId, amount, "USD", shippingAddress);
         OrderCreationResult result = service.createOrder(command);
         return ResponseEntity.ok(new OrderResponse(
                 result.orderId(),

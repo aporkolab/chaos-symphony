@@ -22,20 +22,13 @@ public class RulesController {
 		this.store = store;
 	}
 
-	/** GET /api/chaos/rules -> aktuális szabályok */
+	
 	@GetMapping("/rules")
 	public ResponseEntity<Map<String, ChaosRules.Rule>> getRules() {
 		return ResponseEntity.ok(store.get());
 	}
 
-	/**
-	 * POST /api/chaos/rules
-	 * Body példa:
-	 * {
-	 * "topic:payment.result":
-	 * {"pDrop":0.2,"pDup":0.05,"maxDelayMs":400,"pCorrupt":0.02}
-	 * }
-	 */
+	
 	@PostMapping("/rules")
 	public ResponseEntity<Map<String, ChaosRules.Rule>> setRules(
 			@RequestBody Map<String, Map<String, Object>> body) {
@@ -57,7 +50,7 @@ public class RulesController {
 		return ResponseEntity.ok(store.get());
 	}
 
-	/** Törlés (opcionális) – visszaáll üresre */
+	
 	@DeleteMapping("/rules")
 	public ResponseEntity<Map<String, ChaosRules.Rule>> clearRules() {
 		store.set(Map.of());
@@ -85,7 +78,7 @@ public class RulesController {
 		double pCorrupt = ((Number) body.getOrDefault("pCorrupt", 0)).doubleValue();
 
 		ChaosRules.Rule rule = new ChaosRules.Rule(pDrop, pDup, maxDelayMs, pCorrupt);
-		var current = store.get();
+		var current = new java.util.HashMap<>(store.get()); 
 		current.put(topic, rule);
 		store.set(current);
 
@@ -95,7 +88,7 @@ public class RulesController {
 
 	@DeleteMapping("/rules/{topic}")
 	public ResponseEntity<Map<String, ChaosRules.Rule>> deleteRule(@PathVariable String topic) {
-		var current = store.get();
+		var current = new java.util.HashMap<>(store.get()); 
 		if (current.containsKey(topic)) {
 			current.remove(topic);
 			store.set(current);
@@ -105,7 +98,7 @@ public class RulesController {
 		return ResponseEntity.notFound().build();
 	}
 
-    // Status endpoint
+    
     @GetMapping("/status")
     public Map<String, Object> status() {
         Map<String, Object> resp = new HashMap<>();
