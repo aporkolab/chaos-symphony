@@ -20,7 +20,8 @@ public enum OrderStatus {
     }
 
     public boolean isTerminal() {
-        return this == COMPLETED || this == CANCELLED || this == FAILED || this == REJECTED;
+        return this == COMPLETED || this == CANCELLED || this == FAILED || this == REJECTED 
+            || this == PAYMENT_FAILED || this == INVENTORY_FAILED || this == SHIPPING_FAILED;
     }
 
     public boolean canProceedToPayment() {

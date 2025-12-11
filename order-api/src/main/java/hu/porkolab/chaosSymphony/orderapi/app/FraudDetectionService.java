@@ -14,20 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Fraud detection service implementing rule-based risk scoring.
- *
- * <p>Business Rules:
- * <ul>
- *   <li>Orders over $1000 → automatic review</li>
- *   <li>Fraud score > 70 → automatic review</li>
- *   <li>Fraud score > 90 → automatic rejection</li>
- *   <li>Multiple orders from same customer in short time → elevated risk</li>
- * </ul>
- *
- * <p>In production, this would integrate with external fraud detection APIs
- * (e.g., Stripe Radar, Sift, or custom ML models).
- */
+
 @Slf4j
 @Service
 public class FraudDetectionService {
@@ -40,10 +27,7 @@ public class FraudDetectionService {
     private final Counter ordersFlagged;
     private final Counter ordersAutoRejected;
 
-    /**
-     * Simple in-memory velocity tracking.
-     * In production: use Redis with TTL or a dedicated fraud service.
-     */
+    
     private final Map<String, List<Long>> customerOrderTimestamps = new ConcurrentHashMap<>();
 
     @Value("${fraud.velocity.window.minutes:60}")
@@ -58,27 +42,22 @@ public class FraudDetectionService {
         this.ordersAutoRejected = meterRegistry.counter("fraud.orders.auto_rejected");
     }
 
-    /**
-     * Evaluates fraud risk for an order.
-     *
-     * @param order The order to evaluate
-     * @return FraudCheckResult containing score and recommended action
-     */
+    
     public FraudCheckResult evaluate(Order order) {
         ordersScanned.increment();
 
         BigDecimal score = BigDecimal.ZERO;
-        List<String> reasons = new ArrayList<>();
+        List<String> reasons = new CopyOnWriteArrayList<>();
 
-        // Rule 1: High-value order check
+        
         if (order.getTotal().compareTo(HIGH_VALUE_THRESHOLD) > 0) {
             BigDecimal valueScore = calculateValueRiskScore(order.getTotal());
             score = score.add(valueScore);
             reasons.add(String.format("High value order: $%.2f (score +%.1f)",
-                    order.getTotal(), valueScore));
+                order.getTotal(), valueScore));
         }
 
-        // Rule 2: Velocity check (multiple orders in short time)
+        
         if (order.getCustomerId() != null) {
             BigDecimal velocityScore = calculateVelocityScore(order.getCustomerId());
             if (velocityScore.compareTo(BigDecimal.ZERO) > 0) {
@@ -88,21 +67,21 @@ public class FraudDetectionService {
             recordOrderTimestamp(order.getCustomerId());
         }
 
-        // Rule 3: Round number detection (common in fraud)
+        
         if (isRoundNumber(order.getTotal())) {
             score = score.add(new BigDecimal("15.00"));
             reasons.add("Suspiciously round amount (score +15)");
         }
 
-        // Rule 4: Time-based risk (orders at unusual hours get slight bump)
-        // Simplified: in production, use customer's timezone and historical patterns
+        
+        
         int hour = java.time.LocalTime.now().getHour();
         if (hour >= 1 && hour <= 5) {
             score = score.add(new BigDecimal("10.00"));
             reasons.add("Off-hours order (score +10)");
         }
 
-        // Cap score at 100
+        
         score = score.min(new BigDecimal("100.00"));
 
         FraudAction action = determineAction(score, order.getTotal());
@@ -110,25 +89,25 @@ public class FraudDetectionService {
         if (action == FraudAction.REJECT) {
             ordersAutoRejected.increment();
             log.warn("Order {} auto-rejected. Score: {}, Reasons: {}",
-                    order.getId(), score, reasons);
+                order.getId(), score, reasons);
         } else if (action == FraudAction.REVIEW) {
             ordersFlagged.increment();
             log.info("Order {} flagged for review. Score: {}, Reasons: {}",
-                    order.getId(), score, reasons);
+                order.getId(), score, reasons);
         } else {
             log.debug("Order {} passed fraud check. Score: {}", order.getId(), score);
         }
 
         return new FraudCheckResult(
-                score.setScale(2, RoundingMode.HALF_UP),
-                action,
-                String.join("; ", reasons)
+            score.setScale(2, RoundingMode.HALF_UP),
+            action,
+            String.join("; ", reasons)
         );
     }
 
     private BigDecimal calculateValueRiskScore(BigDecimal total) {
-        // Progressive scoring: higher value = higher risk
-        // $1000-2000: +20, $2000-5000: +35, $5000+: +50
+        
+        
         if (total.compareTo(new BigDecimal("5000")) >= 0) {
             return new BigDecimal("50.00");
         } else if (total.compareTo(new BigDecimal("2000")) >= 0) {
@@ -146,56 +125,54 @@ public class FraudDetectionService {
 
         long windowStart = System.currentTimeMillis() - (velocityWindowMinutes * 60 * 1000L);
         long recentOrders = timestamps.stream()
-                .filter(ts -> ts > windowStart)
-                .count();
+            .filter(ts -> ts > windowStart)
+            .count();
 
         if (recentOrders >= velocityMaxOrders) {
-            return new BigDecimal("40.00"); // High velocity = significant risk
+            return new BigDecimal("40.00"); 
         } else if (recentOrders >= velocityMaxOrders / 2) {
-            return new BigDecimal("20.00"); // Moderate velocity
+            return new BigDecimal("20.00"); 
         }
         return BigDecimal.ZERO;
     }
 
     private void recordOrderTimestamp(String customerId) {
         customerOrderTimestamps
-                .computeIfAbsent(customerId, k -> new ArrayList<>())
-                .add(System.currentTimeMillis());
+            .computeIfAbsent(customerId, k -> new CopyOnWriteArrayList<>())
+            .add(System.currentTimeMillis());
 
-        // Cleanup old entries (simple housekeeping)
+        
         long windowStart = System.currentTimeMillis() - (velocityWindowMinutes * 60 * 1000L);
         customerOrderTimestamps.get(customerId).removeIf(ts -> ts < windowStart);
     }
 
     private boolean isRoundNumber(BigDecimal amount) {
-        // Check if amount is a "round" number (ends in 00, 50, or 000)
+        
         BigDecimal remainder = amount.remainder(new BigDecimal("100"));
         return remainder.compareTo(BigDecimal.ZERO) == 0
-                || remainder.compareTo(new BigDecimal("50")) == 0;
+            || remainder.compareTo(new BigDecimal("50")) == 0;
     }
 
     private FraudAction determineAction(BigDecimal score, BigDecimal total) {
-        // Auto-reject if score is extremely high
+        
         if (score.compareTo(REJECT_SCORE_THRESHOLD) >= 0) {
             return FraudAction.REJECT;
         }
 
-        // Review if score is elevated OR if high-value regardless of score
+        
         if (score.compareTo(REVIEW_SCORE_THRESHOLD) >= 0
-                || total.compareTo(HIGH_VALUE_THRESHOLD) > 0) {
+            || total.compareTo(HIGH_VALUE_THRESHOLD) > 0) {
             return FraudAction.REVIEW;
         }
 
         return FraudAction.APPROVE;
     }
 
-    /**
-     * Result of fraud evaluation.
-     */
+    
     public record FraudCheckResult(
-            BigDecimal score,
-            FraudAction action,
-            String reason
+        BigDecimal score,
+        FraudAction action,
+        String reason
     ) {
         public boolean requiresReview() {
             return action == FraudAction.REVIEW;
@@ -206,15 +183,13 @@ public class FraudDetectionService {
         }
     }
 
-    /**
-     * Recommended action based on fraud evaluation.
-     */
+    
     public enum FraudAction {
-        /** Order can proceed normally */
+        
         APPROVE,
-        /** Order requires manual review */
+        
         REVIEW,
-        /** Order should be automatically rejected */
+        
         REJECT
     }
 }

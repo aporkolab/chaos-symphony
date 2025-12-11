@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PaymentProducer {
@@ -18,11 +19,19 @@ public class PaymentProducer {
         String msg = EnvelopeHelper.envelope(orderId, "PaymentRequested", paymentPayloadJson);
 
         double canaryPercentage = environment.getProperty("canary.payment.percentage", Double.class, 0.0);
-        
-        if (ThreadLocalRandom.current().nextDouble() < canaryPercentage) {
-            kafkaTemplate.send("payment.requested.canary", orderId, msg);
-        } else {
-            kafkaTemplate.send("payment.requested", orderId, msg);
-        }
+
+        String topic = ThreadLocalRandom.current().nextDouble() < canaryPercentage
+            ? "payment.requested.canary"
+            : "payment.requested";
+
+        kafkaTemplate.send(topic, orderId, msg)
+            .whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.error("CRITICAL: Failed to send payment request for orderId={} to topic {}: {}",
+                        orderId, topic, ex.getMessage(), ex);
+                } else {
+                    log.debug("Payment request sent for orderId={} to topic {}", orderId, topic);
+                }
+            });
     }
 }

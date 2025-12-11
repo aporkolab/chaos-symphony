@@ -27,13 +27,24 @@ public class OrderStatusListener {
     public void onStatusUpdate(ConsumerRecord<String, String> record) {
         try {
             JsonNode msg = objectMapper.readTree(record.value());
-            String orderId = msg.get("orderId").asText();
-            String status = msg.get("status").asText();
-            String reason = msg.has("reason") ? msg.get("reason").asText() : null;
+            String orderId = msg.path("orderId").asText(null);
+            String status = msg.path("status").asText(null);
+            String reason = msg.path("reason").asText(null);
+
+            if (orderId == null || status == null) {
+                log.error("Invalid status update message: orderId={}, status={}", orderId, status);
+                return;
+            }
 
             log.info("Received order status update: orderId={}, status={}", orderId, status);
 
-            UUID uuid = UUID.fromString(orderId);
+            UUID uuid;
+            try {
+                uuid = UUID.fromString(orderId);
+            } catch (IllegalArgumentException e) {
+                log.error("Invalid UUID format for orderId: {}", orderId);
+                return;
+            }
             orderRepository.findById(uuid).ifPresentOrElse(
                 order -> {
                     OrderStatus newStatus = mapStatus(status);

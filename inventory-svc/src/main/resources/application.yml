@@ -1,6 +1,18 @@
 server:
   port: 8084
 spring:
+  application:
+    name: inventory-svc
+  datasource:
+    url: jdbc:h2:mem:inventory;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate.ddl-auto: none
+  sql:
+    init:
+      mode: always
   jackson:
     time-zone: Europe/Budapest
   kafka:
@@ -61,7 +73,7 @@ inventory:
 chaos:
   retry:
     strategy: exponential
-    max-attempts: 4            
+    max-attempts: 4
     initial-interval-ms: 300
     multiplier: 2.0
     max-interval-ms: 5000

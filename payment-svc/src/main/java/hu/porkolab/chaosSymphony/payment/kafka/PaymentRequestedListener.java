@@ -57,30 +57,29 @@ public class PaymentRequestedListener {
     @RetryableTopic(
             attempts = "4",
             backoff = @Backoff(delay = 1000, multiplier = 2.0, random = true),
-            include = {SocketTimeoutException.class, IllegalStateException.class},
+            include = {SocketTimeoutException.class},
             autoCreateTopics = "false"
     )
     @KafkaListener(topics = "${kafka.topic.payment.requested}", groupId = "${kafka.group.id.payment}")
     @Transactional
-    public void onPaymentRequested(ConsumerRecord<String, String> rec) throws Exception {
+    public void onPaymentRequested(ConsumerRecord<String, String> rec) {
         processPayment(rec, paymentsProcessedMain, false);
     }
 
     @RetryableTopic(
             attempts = "4",
             backoff = @Backoff(delay = 1000, multiplier = 2.0, random = true),
-            include = {SocketTimeoutException.class, IllegalStateException.class},
+            include = {SocketTimeoutException.class},
             autoCreateTopics = "false"
     )
     @KafkaListener(topics = "${kafka.topic.payment.requested.canary}", groupId = "${kafka.group.id.payment.canary}")
     @Transactional
-    public void onPaymentRequestedCanary(ConsumerRecord<String, String> rec) throws Exception {
+    public void onPaymentRequestedCanary(ConsumerRecord<String, String> rec) {
         processPayment(rec, paymentsProcessedCanary, true);
     }
 
     
-    private void processPayment(ConsumerRecord<String, String> rec, Counter counter, boolean isCanary) 
-            throws Exception {
+    private void processPayment(ConsumerRecord<String, String> rec, Counter counter, boolean isCanary) {
         String logPrefix = isCanary ? "[CANARY] " : "";
         long startTime = System.nanoTime();
         
@@ -92,25 +91,55 @@ public class PaymentRequestedListener {
                 return;
             }
 
-            EventEnvelope envelope = EnvelopeHelper.parse(rec.value());
-            String orderId = envelope.getOrderId();
+            EventEnvelope envelope;
+            JsonNode message;
+            try {
+                envelope = EnvelopeHelper.parse(rec.value());
+                message = objectMapper.readTree(envelope.getPayload());
+            } catch (Exception e) {
+                log.error("{}Failed to parse payment.requested message: {}", logPrefix, e.getMessage());
+                return;
+            }
             
-            JsonNode message = objectMapper.readTree(envelope.getPayload());
+            String orderId = envelope.getOrderId();
+            if (orderId == null || orderId.isBlank()) {
+                log.error("{}Missing orderId in payment.requested, skipping", logPrefix);
+                return;
+            }
+            
             double amount = message.path("amount").asDouble();
 
-            simulatePaymentProcessing(orderId, logPrefix);
+            try {
+                simulatePaymentProcessing(orderId, logPrefix);
 
-            String status = "CHARGED";
-            paymentStatusStore.save(orderId, status);
+                String status = "CHARGED";
+                String paymentId = java.util.UUID.randomUUID().toString();
+                paymentStatusStore.save(orderId, status);
 
-            String resultPayload = objectMapper.createObjectNode()
-                    .put("orderId", orderId)
-                    .put("status", status)
-                    .put("amount", amount)
-                    .toString();
+                String resultPayload = objectMapper.createObjectNode()
+                        .put("orderId", orderId)
+                        .put("paymentId", paymentId)
+                        .put("status", status)
+                        .put("amount", amount)
+                        .toString();
 
-            log.info("{}Payment processed for orderId={}, status: {}", logPrefix, orderId, status);
-            producer.sendResult(orderId, resultPayload);
+                log.info("{}Payment processed for orderId={}, paymentId={}, status: {}", logPrefix, orderId, paymentId, status);
+                producer.sendResult(orderId, resultPayload);
+            } catch (IllegalStateException e) {
+                
+                String status = "FAILED";
+                paymentStatusStore.save(orderId, status);
+
+                String resultPayload = objectMapper.createObjectNode()
+                        .put("orderId", orderId)
+                        .put("status", status)
+                        .put("reason", e.getMessage())
+                        .put("amount", amount)
+                        .toString();
+
+                log.warn("{}Payment failed for orderId={}: {}", logPrefix, orderId, e.getMessage());
+                producer.sendResult(orderId, resultPayload);
+            }
             
         } finally {
             processingTime.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS);

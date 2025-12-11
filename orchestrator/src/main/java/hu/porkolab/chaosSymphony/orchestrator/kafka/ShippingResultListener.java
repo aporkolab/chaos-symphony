@@ -28,17 +28,30 @@ public class ShippingResultListener {
 
 	@KafkaListener(topics = "shipping.result", groupId = "orchestrator-shipping-result")
 	@Transactional
-	public void onResult(ConsumerRecord<String, String> rec) throws Exception {
+	public void onResult(ConsumerRecord<String, String> rec) {
 		if (!idempotencyStore.markIfFirst(rec.key())) {
 			log.warn("Duplicate message detected, skipping: {}", rec.key());
 			return;
 		}
 
-		EventEnvelope env = EnvelopeHelper.parse(rec.value());
+		EventEnvelope env;
+		JsonNode msg;
+		try {
+			env = EnvelopeHelper.parse(rec.value());
+			msg = om.readTree(env.getPayload());
+		} catch (Exception e) {
+			log.error("Failed to parse shipping.result message: {}", e.getMessage());
+			return;
+		}
+
 		String orderId = env.getOrderId();
-		JsonNode msg = om.readTree(env.getPayload());
 		String status = msg.path("status").asText("");
 		String shippingId = msg.path("shippingId").asText(null);
+
+		if (orderId == null || orderId.isBlank()) {
+			log.error("Missing orderId in shipping.result, skipping");
+			return;
+		}
 
 		log.info("Shipping result received: orderId={}, status={}", orderId, status);
 

@@ -1,7 +1,6 @@
 server:
   port: 8082
 
-
 kafka:
   topic:
     payment:
@@ -14,6 +13,18 @@ kafka:
       payment.canary: payment-requested-canary
 
 spring:
+  application:
+    name: payment-svc
+  datasource:
+    url: jdbc:h2:mem:payment;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate.ddl-auto: none
+  sql:
+    init:
+      mode: always
   jackson:
     time-zone: Europe/Budapest
   kafka:
@@ -65,7 +76,6 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
 
-
 payment:
   processing:
     success-rate: 0.9
@@ -73,7 +83,7 @@ payment:
 chaos:
   retry:
     strategy: exponential
-    max-attempts: 4            
+    max-attempts: 4
     initial-interval-ms: 300
     multiplier: 2.0
     max-interval-ms: 5000

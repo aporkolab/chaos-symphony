@@ -50,12 +50,12 @@ public class ShippingRequestedListener {
     @RetryableTopic(
             attempts = "4",
             backoff = @Backoff(delay = 1000, multiplier = 2.0, random = true),
-            include = {SocketTimeoutException.class, IllegalStateException.class},
+            include = {SocketTimeoutException.class},
             autoCreateTopics = "false"
     )
     @KafkaListener(topics = "${kafka.topic.shipping.requested}", groupId = "${kafka.group.id.shipping}")
     @Transactional
-    public void onShippingRequested(ConsumerRecord<String, String> rec) throws Exception {
+    public void onShippingRequested(ConsumerRecord<String, String> rec) {
         long startTime = System.nanoTime();
         try {
             messagesProcessed.increment();
@@ -65,23 +65,49 @@ public class ShippingRequestedListener {
                 return;
             }
 
-            EventEnvelope envelope = EnvelopeHelper.parse(rec.value());
-            String orderId = envelope.getOrderId();
+            EventEnvelope envelope;
+            JsonNode message;
+            try {
+                envelope = EnvelopeHelper.parse(rec.value());
+                message = objectMapper.readTree(envelope.getPayload());
+            } catch (Exception e) {
+                log.error("Failed to parse shipping.requested message: {}", e.getMessage());
+                return;
+            }
 
-            JsonNode message = objectMapper.readTree(envelope.getPayload());
+            String orderId = envelope.getOrderId();
+            if (orderId == null || orderId.isBlank()) {
+                log.error("Missing orderId in shipping.requested, skipping");
+                return;
+            }
+
             String address = message.path("address").asText();
 
-            validateAndShip(orderId, address);
+            try {
+                validateAndShip(orderId, address);
 
-            String status = "SHIPPED";
-            String resultPayload = objectMapper.createObjectNode()
-                    .put("orderId", orderId)
-                    .put("status", status)
-                    .put("address", address)
-                    .toString();
+                String status = "SHIPPED";
+                String shippingId = java.util.UUID.randomUUID().toString();
+                String resultPayload = objectMapper.createObjectNode()
+                        .put("orderId", orderId)
+                        .put("shippingId", shippingId)
+                        .put("status", status)
+                        .put("address", address)
+                        .toString();
 
-            log.info("Shipping processed for orderId={}, address={}, status={}", orderId, address, status);
-            producer.sendResult(orderId, resultPayload);
+                log.info("Shipping processed for orderId={}, shippingId={}, address={}, status={}", orderId, shippingId, address, status);
+                producer.sendResult(orderId, resultPayload);
+            } catch (IllegalStateException | IllegalArgumentException e) {
+                
+                String resultPayload = objectMapper.createObjectNode()
+                        .put("orderId", orderId)
+                        .put("status", "FAILED")
+                        .put("reason", e.getMessage())
+                        .toString();
+
+                log.warn("Shipping failed for orderId={}: {}", orderId, e.getMessage());
+                producer.sendResult(orderId, resultPayload);
+            }
             
         } finally {
             processingTime.record(System.nanoTime() - startTime, TimeUnit.NANOSECONDS);

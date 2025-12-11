@@ -28,22 +28,36 @@ public class PaymentResultListener {
 
     @KafkaListener(topics = "payment.result", groupId = "orchestrator-payment-result")
     @Transactional
-    public void onPaymentResult(ConsumerRecord<String, String> rec) throws Exception {
+    public void onPaymentResult(ConsumerRecord<String, String> rec) {
         if (!idempotencyStore.markIfFirst(rec.key())) {
             log.warn("Duplicate message detected, skipping: {}", rec.key());
             return;
         }
 
-        EventEnvelope env = EnvelopeHelper.parse(rec.value());
-        JsonNode p = om.readTree(env.getPayload());
+        EventEnvelope env;
+        JsonNode p;
+        try {
+            env = EnvelopeHelper.parse(rec.value());
+            p = om.readTree(env.getPayload());
+        } catch (Exception e) {
+            log.error("Failed to parse payment.result message: {}", e.getMessage());
+            return;
+        }
+
         String status = p.path("status").asText("UNKNOWN");
         String orderId = p.path("orderId").asText(null);
         String paymentId = p.path("paymentId").asText(null);
+
+        if (orderId == null || orderId.isBlank()) {
+            log.error("Missing orderId in payment.result, skipping");
+            return;
+        }
 
         if ("CHARGED".equalsIgnoreCase(status)) {
             log.info("Payment successful for orderId={}, requesting inventory reservation.", orderId);
 
             sagaOrchestrator.onPaymentCompleted(orderId, paymentId);
+            sagaOrchestrator.onInventoryRequested(orderId);
 
             ObjectNode payload = om.createObjectNode().put("orderId", orderId);
             inventoryProducer.sendRequest(orderId, payload.toString());

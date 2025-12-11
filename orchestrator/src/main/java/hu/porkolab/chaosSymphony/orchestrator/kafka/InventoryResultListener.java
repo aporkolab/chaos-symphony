@@ -30,17 +30,30 @@ public class InventoryResultListener {
 
 	@KafkaListener(topics = "inventory.result", groupId = "orchestrator-inventory-result")
 	@Transactional
-	public void onResult(ConsumerRecord<String, String> rec) throws Exception {
+	public void onResult(ConsumerRecord<String, String> rec) {
 		if (!idempotencyStore.markIfFirst(rec.key())) {
 			log.warn("Duplicate message detected, skipping: {}", rec.key());
 			return;
 		}
 
-		EventEnvelope env = EnvelopeHelper.parse(rec.value());
+		EventEnvelope env;
+		JsonNode msg;
+		try {
+			env = EnvelopeHelper.parse(rec.value());
+			msg = om.readTree(env.getPayload());
+		} catch (Exception e) {
+			log.error("Failed to parse inventory.result message: {}", e.getMessage());
+			return;
+		}
+
 		String orderId = env.getOrderId();
-		JsonNode msg = om.readTree(env.getPayload());
 		String status = msg.path("status").asText("");
 		String reservationId = msg.path("reservationId").asText(null);
+
+		if (orderId == null || orderId.isBlank()) {
+			log.error("Missing orderId in inventory.result, skipping");
+			return;
+		}
 
 		log.info("Orchestrator got InventoryResult: orderId={}, status={}", orderId, status);
 
@@ -49,11 +62,20 @@ public class InventoryResultListener {
 				
 				sagaOrchestrator.onInventoryReserved(orderId, reservationId);
 
+				
+				String address = sagaOrchestrator.getShippingAddress(orderId);
+				if (address == null || address.isBlank()) {
+					log.warn("No shipping address found for orderId={}, using default", orderId);
+					address = "Default Address - Please Update";
+				}
+
 				ObjectNode payload = om.createObjectNode()
 						.put("orderId", orderId)
-						.put("address", "Budapest");
+						.put("address", address);
+				sagaOrchestrator.onShippingRequested(orderId);
+
 				shippingProducer.sendRequest(orderId, payload.toString());
-				log.debug("Shipping request sent for orderId={}", orderId);
+				log.debug("Shipping request sent for orderId={} to address={}", orderId, address);
 			}
 			case "OUT_OF_STOCK" -> {
 				log.warn("Inventory OUT_OF_STOCK for orderId={}", orderId);

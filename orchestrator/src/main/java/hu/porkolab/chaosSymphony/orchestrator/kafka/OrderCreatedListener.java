@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import hu.porkolab.chaosSymphony.common.idemp.IdempotencyStore;
 import hu.porkolab.chaosSymphony.orchestrator.saga.SagaOrchestrator;
-import hu.porkolab.chaosSymphony.orchestrator.saga.SagaState;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -44,7 +43,7 @@ public class OrderCreatedListener {
     )
     @KafkaListener(topics = "order.created", groupId = "orchestrator-order-created")
     @Transactional
-    public void onOrderCreated(ConsumerRecord<String, String> rec) throws Exception {
+    public void onOrderCreated(ConsumerRecord<String, String> rec) {
         String messageKey = rec.key();
         
         if (!idempotencyStore.markIfFirst(messageKey)) {
@@ -52,40 +51,51 @@ public class OrderCreatedListener {
             return;
         }
 
-        
-        String rawMessage = rec.value();
-        JsonNode root = objectMapper.readTree(rawMessage);
-        
-        
-        String payloadStr;
-        if (root.has("payload")) {
-            JsonNode payloadNode = root.get("payload");
+        JsonNode root;
+        JsonNode event;
+        try {
+            String rawMessage = rec.value();
+            root = objectMapper.readTree(rawMessage);
             
-            if (payloadNode.isTextual()) {
-                payloadStr = payloadNode.asText();
+            String payloadStr;
+            if (root.has("payload")) {
+                JsonNode payloadNode = root.get("payload");
+                
+                if (payloadNode.isTextual()) {
+                    payloadStr = payloadNode.asText();
+                } else {
+                    payloadStr = payloadNode.toString();
+                }
             } else {
-                payloadStr = payloadNode.toString();
+                payloadStr = rawMessage;
             }
-        } else {
             
-            payloadStr = rawMessage;
+            event = objectMapper.readTree(payloadStr);
+        } catch (Exception e) {
+            log.error("Failed to parse order.created message: {}", e.getMessage());
+            return;
         }
         
         
-        JsonNode event = objectMapper.readTree(payloadStr);
+        String orderId = event.path("orderId").asText(null);
+        if (orderId == null || orderId.isBlank()) {
+            log.error("Missing orderId in order.created event, skipping");
+            return;
+        }
         
-        String orderId = event.get("orderId").asText();
-        double total = event.get("total").asDouble();
-        String currency = event.get("currency").asText();
+        double total = event.path("total").asDouble(0.0);
+        String currency = event.path("currency").asText("USD");
         String customerId = event.has("customerId") && !event.get("customerId").isNull() 
                 ? event.get("customerId").asText() 
                 : "N/A";
+        String shippingAddress = event.has("shippingAddress") && !event.get("shippingAddress").isNull()
+                ? event.get("shippingAddress").asText()
+                : null;
 
-        log.info("OrderCreated received for orderId={}, customerId={} -> initiating payment saga", 
-                orderId, customerId);
+        log.info("OrderCreated received for orderId={}, customerId={}, address={} -> initiating payment saga", 
+                orderId, customerId, shippingAddress != null ? shippingAddress : "NOT_PROVIDED");
 
-        var saga = sagaOrchestrator.startSaga(orderId);
-        saga.transitionTo(SagaState.PAYMENT_PENDING);
+        var saga = sagaOrchestrator.startSagaAndRequestPayment(orderId, shippingAddress);
 
         String paymentPayload = objectMapper.createObjectNode()
                 .put("orderId", orderId)

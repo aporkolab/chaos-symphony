@@ -15,6 +15,9 @@ public enum SagaState {
     PAYMENT_FAILED(SagaPhase.PAYMENT),
 
     
+    INVENTORY_PENDING(SagaPhase.INVENTORY),
+
+    
     INVENTORY_RESERVED(SagaPhase.INVENTORY),
 
     

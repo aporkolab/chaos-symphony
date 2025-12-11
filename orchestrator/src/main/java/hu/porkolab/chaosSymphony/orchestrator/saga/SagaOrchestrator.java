@@ -5,6 +5,8 @@ import hu.porkolab.chaosSymphony.orchestrator.kafka.OrderStatusProducer;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,25 +22,28 @@ public class SagaOrchestrator {
     private final CompensationProducer compensationProducer;
     private final OrderStatusProducer orderStatusProducer;
     private final Counter compensationsTriggered;
+    private final Counter compensationsCompleted;
 
+    @Autowired
     public SagaOrchestrator(SagaRepository sagaRepository,
                             CompensationProducer compensationProducer,
-                            OrderStatusProducer orderStatusProducer,
-                            Counter compensationsTriggered) {
+                            @Autowired(required = false) OrderStatusProducer orderStatusProducer,
+                            @Qualifier("compensationsTriggered") Counter compensationsTriggered,
+                            @Qualifier("compensationsCompleted") Counter compensationsCompleted) {
         this.sagaRepository = sagaRepository;
         this.compensationProducer = compensationProducer;
         this.orderStatusProducer = orderStatusProducer;
         this.compensationsTriggered = compensationsTriggered;
+        this.compensationsCompleted = compensationsCompleted;
     }
 
     
     public SagaOrchestrator(SagaRepository sagaRepository,
                             CompensationProducer compensationProducer,
                             MeterRegistry meterRegistry) {
-        this.sagaRepository = sagaRepository;
-        this.compensationProducer = compensationProducer;
-        this.orderStatusProducer = null; 
-        this.compensationsTriggered = meterRegistry.counter("saga.compensations.triggered");
+        this(sagaRepository, compensationProducer, null,
+             meterRegistry.counter("saga.compensations.triggered"),
+             meterRegistry.counter("saga.compensations.completed"));
     }
 
     @Transactional
@@ -47,6 +52,25 @@ public class SagaOrchestrator {
         SagaInstance saga = SagaInstance.builder()
             .orderId(orderId)
             .state(SagaState.STARTED)
+            .retryCount(0)
+            .build();
+        return sagaRepository.save(saga);
+    }
+
+    
+    @Transactional
+    public SagaInstance startSagaAndRequestPayment(String orderId) {
+        return startSagaAndRequestPayment(orderId, null);
+    }
+
+    
+    @Transactional
+    public SagaInstance startSagaAndRequestPayment(String orderId, String shippingAddress) {
+        log.info("Starting saga and requesting payment for orderId={}, address={}", orderId, shippingAddress);
+        SagaInstance saga = SagaInstance.builder()
+            .orderId(orderId)
+            .state(SagaState.PAYMENT_PENDING)
+            .shippingAddress(shippingAddress)
             .retryCount(0)
             .build();
         return sagaRepository.save(saga);
@@ -66,12 +90,29 @@ public class SagaOrchestrator {
     }
 
     @Transactional
+    public void onInventoryRequested(String orderId) {
+        sagaRepository.findById(orderId).ifPresentOrElse(
+            saga -> {
+                saga.transitionTo(SagaState.INVENTORY_PENDING);
+                sagaRepository.save(saga);
+                log.info("Saga {} transitioned to INVENTORY_PENDING", orderId);
+            },
+            () -> log.warn("Saga not found for orderId={} on inventory request", orderId)
+        );
+    }
+
+    @Transactional
     public void onPaymentFailed(String orderId, String reason) {
         sagaRepository.findById(orderId).ifPresentOrElse(
             saga -> {
                 saga.fail(SagaState.PAYMENT_FAILED, reason);
+                saga.transitionTo(SagaState.COMPENSATING);
                 sagaRepository.save(saga);
                 log.warn("Saga {} PAYMENT_FAILED: {}", orderId, reason);
+                
+                
+                compensationProducer.requestOrderCancellation(orderId, reason);
+                compensationsTriggered.increment();
                 sendStatusUpdate(orderId, "PAYMENT_FAILED", reason);
             },
             () -> log.warn("Saga not found for orderId={} on payment failure", orderId)
@@ -89,6 +130,26 @@ public class SagaOrchestrator {
             },
             () -> log.warn("Saga not found for orderId={} on inventory reservation", orderId)
         );
+    }
+
+    @Transactional
+    public void onShippingRequested(String orderId) {
+        sagaRepository.findById(orderId).ifPresentOrElse(
+            saga -> {
+                saga.transitionTo(SagaState.SHIPPING_PENDING);
+                sagaRepository.save(saga);
+                log.info("Saga {} transitioned to SHIPPING_PENDING", orderId);
+            },
+            () -> log.warn("Saga not found for orderId={} on shipping request", orderId)
+        );
+    }
+
+    
+    @Transactional(readOnly = true)
+    public String getShippingAddress(String orderId) {
+        return sagaRepository.findById(orderId)
+            .map(SagaInstance::getShippingAddress)
+            .orElse(null);
     }
 
     @Transactional
@@ -160,6 +221,7 @@ public class SagaOrchestrator {
             saga -> {
                 saga.transitionTo(SagaState.COMPENSATED);
                 sagaRepository.save(saga);
+                compensationsCompleted.increment();
                 log.info("Saga {} fully COMPENSATED", orderId);
                 sendStatusUpdate(orderId, "CANCELLED", "Order cancelled after compensation");
             },
@@ -190,6 +252,35 @@ public class SagaOrchestrator {
                     saga.getOrderId(), saga.getPaymentId(), reason);
             }
             compensationProducer.requestOrderCancellation(saga.getOrderId(), reason);
+        }
+    }
+
+    
+    @Transactional
+    public void handleStuckPendingSagas() {
+        Instant threshold = Instant.now().minus(10, ChronoUnit.MINUTES);
+        List<SagaState> pendingStates = List.of(
+            SagaState.PAYMENT_PENDING,
+            SagaState.INVENTORY_PENDING,
+            SagaState.SHIPPING_PENDING
+        );
+        
+        List<SagaInstance> stuckSagas = sagaRepository.findStuckSagas(pendingStates, threshold);
+        
+        for (SagaInstance saga : stuckSagas) {
+            String orderId = saga.getOrderId();
+            SagaState currentState = saga.getState();
+            
+            log.warn("Saga {} stuck in {} for too long, triggering timeout failure", orderId, currentState);
+            
+            String reason = "Timeout waiting for " + currentState.name() + " response";
+            
+            switch (currentState) {
+                case PAYMENT_PENDING -> onPaymentFailed(orderId, reason);
+                case INVENTORY_PENDING -> onInventoryFailed(orderId, reason);
+                case SHIPPING_PENDING -> onShippingFailed(orderId, reason);
+                default -> log.warn("Unexpected pending state {} for saga {}", currentState, orderId);
+            }
         }
     }
 
