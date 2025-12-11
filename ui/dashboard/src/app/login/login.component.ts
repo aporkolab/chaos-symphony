@@ -50,7 +50,8 @@ export class LoginComponent {
         if (token) this.tokenStorage.saveToken(token);
         this.tokenStorage.saveUser(data as any);
 
-        this.router.navigateByUrl('/');
+        
+        window.location.href = '/';
       },
       error: (err: any) => {
         this.errorMessage = err?.error?.message ?? 'Login failed.';

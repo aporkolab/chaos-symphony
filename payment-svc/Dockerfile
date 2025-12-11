@@ -28,7 +28,7 @@ ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/release
 COPY --from=builder /app/payment-svc/target/*.jar ./application.jar
 
 # Expose the port that the application will run on
-EXPOSE 8081
+EXPOSE 8082
 
 # Set the entrypoint to run the application with OTel agent
 ENTRYPOINT ["java", "-javaagent:/app/opentelemetry-javaagent.jar", "-jar", "./application.jar"]

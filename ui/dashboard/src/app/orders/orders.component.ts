@@ -4,6 +4,12 @@ import { OrderService } from './order.service';
 import { finalize } from 'rxjs';
 import { CommonModule } from '@angular/common';
 
+interface OrderResponse {
+  orderId: string;
+  status: string;
+  reviewReason?: string;
+}
+
 @Component({
   selector: 'app-orders',
   standalone: true,
@@ -15,7 +21,7 @@ export class OrdersComponent implements OnInit {
 
   orderForm: FormGroup;
   isLoading = false;
-  recentOrders: string[] = [];
+  recentOrders: OrderResponse[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -23,7 +29,8 @@ export class OrdersComponent implements OnInit {
   ) {
     this.orderForm = this.fb.group({
       customerId: ['customer-123', Validators.required],
-      total: [100.00, [Validators.required, Validators.min(1)]]
+      total: [100.00, [Validators.required, Validators.min(1)]],
+      currency: ['USD', Validators.required]
     });
   }
 
@@ -39,18 +46,18 @@ export class OrdersComponent implements OnInit {
     this.orderService.createOrder(this.orderForm.value)
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
-        next: (response) => {
-          // Add the new order ID to the top of the list
-          this.recentOrders.unshift(response.orderId);
-          // Keep only the last 10 orders for display
+        next: (response: OrderResponse) => {
+          
+          this.recentOrders.unshift(response);
+          
           if (this.recentOrders.length > 10) {
             this.recentOrders.pop();
           }
-          this.orderForm.patchValue({ total: Math.round(100 + Math.random() * 500) });
+          
+          this.orderForm.patchValue({ total: Math.round(100 + Math.random() * 2000) });
         },
         error: (err) => {
           console.error('Failed to create order', err);
-          // Here you would show an error message to the user
         }
       });
   }

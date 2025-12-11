@@ -28,12 +28,26 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
+management:
+  server:
+    port: 9091
+  endpoint:
+    env:
+      post:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,env
+  metrics:
+    tags:
+      app: ${spring.application.name}
+
 logging:
   level:
     root: INFO
     org.springframework.kafka: INFO
     hu.porkolab.chaosSymphony: DEBUG
-
 
 chaos:
   retry:
@@ -70,18 +84,3 @@ chaos:
 canary:
   payment:
     percentage: 0.0
-
-management:
-  server:
-    port: 9091
-  endpoint:
-    env:
-      post:
-        enabled: true
-  endpoints:
-    web:
-      exposure:
-        include: health,info,prometheus,env
-  metrics:
-    tags:
-      app: ${spring.application.name}

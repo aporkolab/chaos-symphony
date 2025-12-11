@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.config.StreamsBuilderFactoryBean;
 
 import java.time.Instant;
 
@@ -21,7 +20,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class MetricsUpdaterServiceTest {
 
-    @Mock StreamsBuilderFactoryBean streamsBuilderFactoryBean;
     @Mock MetricsConfig metricsConfig;
     @Mock KafkaStreams kafkaStreams;
     @Mock ReadOnlyWindowStore<String, Long> store1h;
@@ -31,12 +29,12 @@ class MetricsUpdaterServiceTest {
 
     @BeforeEach
     void setup() {
-        service = new MetricsUpdaterService(streamsBuilderFactoryBean, metricsConfig);
+        service = new MetricsUpdaterService(kafkaStreams, metricsConfig);
     }
 
     @Test
-    void shouldDoNothingWhenKafkaStreamsIsNull() {
-        when(streamsBuilderFactoryBean.getKafkaStreams()).thenReturn(null);
+    void shouldDoNothingWhenKafkaStreamsIsNotRunning() {
+        when(kafkaStreams.state()).thenReturn(KafkaStreams.State.NOT_RUNNING);
 
         service.updateMetrics();
 
@@ -46,12 +44,12 @@ class MetricsUpdaterServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldUpdateMetricsWithCounts() {
-        when(streamsBuilderFactoryBean.getKafkaStreams()).thenReturn(kafkaStreams);
+        when(kafkaStreams.state()).thenReturn(KafkaStreams.State.RUNNING);
         when(kafkaStreams.store(any(StoreQueryParameters.class)))
             .thenReturn(store1h)
             .thenReturn(store6h);
 
-        // Prepare iterators BEFORE setting up mocks
+        
         WindowStoreIterator<Long> chargedIter1h = createIterator(100L);
         WindowStoreIterator<Long> failedIter1h = createIterator(10L);
         WindowStoreIterator<Long> chargedIter6h = createIterator(500L);
@@ -64,16 +62,16 @@ class MetricsUpdaterServiceTest {
 
         service.updateMetrics();
 
-        // 1h: 10 failures out of 110 total = 9% burn rate
+        
         verify(metricsConfig).updateSloBurnRate1h(9L);
-        // 6h: 50 failures out of 550 total = 9% burn rate
+        
         verify(metricsConfig).updateSloBurnRate6h(9L);
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void shouldHandleZeroTotalCount() {
-        when(streamsBuilderFactoryBean.getKafkaStreams()).thenReturn(kafkaStreams);
+        when(kafkaStreams.state()).thenReturn(KafkaStreams.State.RUNNING);
         when(kafkaStreams.store(any(StoreQueryParameters.class)))
             .thenReturn(store1h)
             .thenReturn(store6h);
@@ -97,7 +95,7 @@ class MetricsUpdaterServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldHandleStoreException() {
-        when(streamsBuilderFactoryBean.getKafkaStreams()).thenReturn(kafkaStreams);
+        when(kafkaStreams.state()).thenReturn(KafkaStreams.State.RUNNING);
         when(kafkaStreams.store(any(StoreQueryParameters.class)))
             .thenThrow(new RuntimeException("Store not available"));
 
@@ -109,12 +107,12 @@ class MetricsUpdaterServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldCalculate100PercentBurnRate() {
-        when(streamsBuilderFactoryBean.getKafkaStreams()).thenReturn(kafkaStreams);
+        when(kafkaStreams.state()).thenReturn(KafkaStreams.State.RUNNING);
         when(kafkaStreams.store(any(StoreQueryParameters.class)))
             .thenReturn(store1h)
             .thenReturn(store6h);
 
-        // Prepare ALL iterators BEFORE any when() calls
+        
         WindowStoreIterator<Long> emptyIter1 = createEmptyIterator();
         WindowStoreIterator<Long> failedIter1h = createIterator(100L);
         WindowStoreIterator<Long> emptyIter2 = createEmptyIterator();

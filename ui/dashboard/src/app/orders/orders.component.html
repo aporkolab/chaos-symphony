@@ -3,7 +3,7 @@
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-    <!-- Create Order Form -->
+    
     <div class="md:col-span-1 bg-gray-800 p-6 rounded-lg shadow-lg">
       <h2 class="text-xl font-semibold mb-4">Create New Order</h2>
       <form [formGroup]="orderForm" (ngSubmit)="onSubmit()">
@@ -12,10 +12,20 @@
           <input formControlName="customerId" id="customerId" type="text"
                  class="bg-gray-700 shadow appearance-none border border-gray-600 rounded w-full py-2 px-3 text-gray-200 leading-tight focus:outline-none focus:shadow-outline">
         </div>
-        <div class="mb-6">
+        <div class="mb-4">
           <label for="total" class="block text-gray-400 text-sm font-bold mb-2">Total Amount</label>
-          <input formControlName="total" id="total" type="number"
-                 class="bg-gray-700 shadow appearance-none border border-gray-600 rounded w-full py-2 px-3 text-gray-200 leading-tight focus:outline-none focus:shadow-outline">
+          <div class="flex gap-2">
+            <input formControlName="total" id="total" type="number"
+                   class="bg-gray-700 shadow appearance-none border border-gray-600 rounded flex-1 py-2 px-3 text-gray-200 leading-tight focus:outline-none focus:shadow-outline">
+            <select formControlName="currency" id="currency"
+                    class="bg-gray-700 border border-gray-600 rounded py-2 px-3 text-gray-200 focus:outline-none focus:shadow-outline w-24">
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="HUF">HUF</option>
+            </select>
+          </div>
+          <p class="text-gray-500 text-xs mt-1">Tip: Orders over $1000 trigger fraud review</p>
         </div>
         <div class="flex items-center justify-between">
           <button type="submit" [disabled]="orderForm.invalid || isLoading"
@@ -27,7 +37,7 @@
       </form>
     </div>
 
-    <!-- Recent Orders List -->
+    
     <div class="md:col-span-2 bg-gray-800 p-6 rounded-lg shadow-lg">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-semibold">Recent Orders</h2>
@@ -40,9 +50,14 @@
         No orders created yet. Submit a new order to see it here.
       </div>
       <div *ngIf="recentOrders.length > 0" class="space-y-2">
-        <div *ngFor="let orderId of recentOrders" class="bg-gray-900 p-3 rounded font-mono text-sm text-gray-300">
-          <span class="text-green-400">Order Created:</span> {{ orderId }}
-          <p class="text-xs text-gray-500 mt-1">Awaiting processing by orchestrator...</p>
+        <div *ngFor="let order of recentOrders" class="bg-gray-900 p-3 rounded font-mono text-sm text-gray-300">
+          <div class="flex justify-between items-center">
+            <span class="text-green-400">{{ order.status === 'PENDING_REVIEW' ? '⚠️ Review:' : '✓ Order:' }}</span>
+            <span class="text-xs text-gray-500">{{ order.status }}</span>
+          </div>
+          <div class="mt-1">{{ order.orderId }}</div>
+          <p *ngIf="order.reviewReason" class="text-xs text-yellow-400 mt-1">{{ order.reviewReason }}</p>
+          <p *ngIf="!order.reviewReason" class="text-xs text-gray-500 mt-1">Processing by orchestrator...</p>
         </div>
       </div>
     </div>

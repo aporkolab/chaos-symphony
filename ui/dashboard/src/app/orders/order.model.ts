@@ -1,12 +1,19 @@
 export interface CreateOrderCommand {
   customerId: string;
   total: number;
+  currency: string;
+}
+
+export interface OrderResponse {
+  orderId: string;
+  status: string;
+  reviewReason?: string;
 }
 
 export interface Order {
   id: string;
   status: string;
   total: number;
+  currency: string;
   createdAt: string;
-  // This could be expanded to include the full event timeline
 }

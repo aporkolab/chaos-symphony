@@ -1,14 +1,9 @@
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideHttpClient } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
-import { provideRouter, Routes, withComponentInputBinding } from '@angular/router';
+import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { AppComponent } from './app/app.component';
-import { LoginComponent } from './app/login/login.component';
-
-const routes: Routes = [
-  { path: 'login', component: LoginComponent },
-  { path: '', pathMatch: 'full', redirectTo: 'login' },
-];
+import { routes } from './app/app.routes';
 
 bootstrapApplication(AppComponent, {
   providers: [

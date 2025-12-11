@@ -105,6 +105,7 @@ services:
     build:
       context: ..
       dockerfile: payment-svc/Dockerfile
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_started
@@ -114,7 +115,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=payment-svc
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-    ports: ["8082:8082"]
+    ports: ["8082:8082", "9082:9082"]
     networks: [chaos-net]
 
   payment-svc-canary:
@@ -137,6 +138,7 @@ services:
     build:
       context: ..
       dockerfile: inventory-svc/Dockerfile
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_started
@@ -146,13 +148,14 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=inventory-svc
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-    ports: ["8084:8084"]
+    ports: ["8084:8084", "9084:9084"]
     networks: [chaos-net]
 
   shipping-svc:
     build:
       context: ..
       dockerfile: shipping-svc/Dockerfile
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_started
@@ -162,7 +165,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - OTEL_SERVICE_NAME=shipping-svc
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-    ports: ["8085:8085"]
+    ports: ["8085:8085", "9085:9085"]
     networks: [chaos-net]
 
   streams-analytics:
@@ -250,8 +253,8 @@ services:
     command: ["--config=/etc/otel-collector-config.yml"]
     volumes: ["./otel-collector-config.yml:/etc/otel-collector-config.yml"]
     ports:
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
+      - "4317:4317" 
+      - "4318:4318" 
     networks: [chaos-net]
 
   prometheus:
@@ -270,3 +273,4 @@ services:
     volumes:
       - ./grafana/dashboards:/var/lib/grafana/dashboards
       - ./grafana/provisioning/dashboards.yml:/etc/grafana/provisioning/dashboards/main.yml
+      - ./grafana/provisioning/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
