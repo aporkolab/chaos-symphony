@@ -20,7 +20,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -119,8 +118,8 @@ class ShippingRequestedListenerTest {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"UNKNOWN", "   "})
-    @DisplayName("Should reject invalid addresses")
-    void shouldRejectInvalidAddresses(String invalidAddress) {
+    @DisplayName("Should send FAILED status for invalid addresses")
+    void shouldSendFailedForInvalidAddresses(String invalidAddress) {
         
         String addressValue = invalidAddress == null ? "" : invalidAddress;
         String envelope = """
@@ -137,14 +136,20 @@ class ShippingRequestedListenerTest {
         when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
         
         
-        assertThatThrownBy(() -> listener.onShippingRequested(record))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Invalid shipping address");
+        listener.onShippingRequested(record);
+        
+        
+        ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
+        verify(producer).sendResult(eq(ORDER_ID), payloadCaptor.capture());
+        
+        String resultPayload = payloadCaptor.getValue();
+        assertThat(resultPayload).contains("\"status\":\"FAILED\"");
+        assertThat(resultPayload).contains("Invalid shipping address");
     }
 
     @Test
-    @DisplayName("Should throw when carrier unavailable")
-    void shouldThrowWhenCarrierUnavailable() {
+    @DisplayName("Should send FAILED when carrier unavailable")
+    void shouldSendFailedWhenCarrierUnavailable() {
         
         String envelope = createEnvelope(TEST_ADDRESS);
         ConsumerRecord<String, String> record = new ConsumerRecord<>(
@@ -155,9 +160,15 @@ class ShippingRequestedListenerTest {
         ReflectionTestUtils.setField(listener, "successRate", 0.0);
         
         
-        assertThatThrownBy(() -> listener.onShippingRequested(record))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Shipping carrier unavailable");
+        listener.onShippingRequested(record);
+        
+        
+        ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
+        verify(producer).sendResult(eq(ORDER_ID), payloadCaptor.capture());
+        
+        String resultPayload = payloadCaptor.getValue();
+        assertThat(resultPayload).contains("\"status\":\"FAILED\"");
+        assertThat(resultPayload).contains("Shipping carrier unavailable");
     }
 
     @Test
@@ -170,11 +181,7 @@ class ShippingRequestedListenerTest {
         when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
         
         
-        try {
-            listener.onShippingRequested(record);
-        } catch (Exception ignored) {
-            
-        }
+        listener.onShippingRequested(record);
         
         
         verify(processingTime).record(anyLong(), eq(TimeUnit.NANOSECONDS));

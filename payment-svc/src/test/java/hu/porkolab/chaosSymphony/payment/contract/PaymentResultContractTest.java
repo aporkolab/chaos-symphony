@@ -10,30 +10,18 @@ import au.com.dius.pact.core.model.messaging.Message;
 import au.com.dius.pact.core.model.messaging.MessagePact;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import hu.porkolab.chaosSymphony.common.EnvelopeHelper;
-import hu.porkolab.chaosSymphony.payment.kafka.PaymentResultProducer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 
 import static au.com.dius.pact.consumer.dsl.LambdaDsl.newJsonBody;
 
-/**
- * Contract test for payment result messages where payment-svc is the consumer
- * (it produces payment.result messages that the orchestrator consumes).
- */
+
 @ExtendWith(PactConsumerTestExt.class)
-@SpringBootTest
-@ActiveProfiles("test")
 @PactTestFor(providerName = "payment-result-producer", providerType = ProviderType.ASYNCH, pactVersion = PactSpecVersion.V3)
 public class PaymentResultContractTest {
 
-    @SpyBean
-    private PaymentResultProducer paymentResultProducer;
-    
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Pact(consumer = "orchestrator")
@@ -52,18 +40,18 @@ public class PaymentResultContractTest {
     @Test
     @PactTestFor(pactMethod = "createPaymentResultPact")
     public void testPaymentResultMessage(List<Message> messages) throws Exception {
-        // Verify that the producer can create messages in the expected format
+        
         assert !messages.isEmpty();
         
-        // Test the actual message format
+        
         Message message = messages.get(0);
         String messageBody = message.getContents().valueAsString();
         
-        // Verify the message can be parsed by our envelope helper
+        
         var envelope = EnvelopeHelper.parse(messageBody);
         assert envelope.getType().equals("PaymentResult");
         
-        // Verify the payload structure
+        
         var payloadNode = objectMapper.readTree(envelope.getPayload());
         assert payloadNode.has("orderId");
         assert payloadNode.has("status");

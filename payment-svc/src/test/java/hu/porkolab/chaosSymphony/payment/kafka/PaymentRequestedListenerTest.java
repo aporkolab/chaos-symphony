@@ -19,7 +19,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -130,8 +129,8 @@ class PaymentRequestedListenerTest {
         }
 
         @Test
-        @DisplayName("Should throw when payment processing fails")
-        void shouldThrowWhenPaymentFails() {
+        @DisplayName("Should send FAILED result when payment processing fails")
+        void shouldSendFailedResultWhenPaymentFails() throws Exception {
             
             String envelope = createEnvelope(ORDER_ID, AMOUNT);
             ConsumerRecord<String, String> record = new ConsumerRecord<>(
@@ -142,9 +141,17 @@ class PaymentRequestedListenerTest {
             ReflectionTestUtils.setField(listener, "successRate", 0.0);
             
             
-            assertThatThrownBy(() -> listener.onPaymentRequested(record))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("Payment processing failed");
+            listener.onPaymentRequested(record);
+            
+            
+            verify(paymentStatusStore).save(ORDER_ID, "FAILED");
+            
+            ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
+            verify(producer).sendResult(eq(ORDER_ID), payloadCaptor.capture());
+            
+            String resultPayload = payloadCaptor.getValue();
+            assertThat(resultPayload).contains("\"status\":\"FAILED\"");
+            assertThat(resultPayload).contains("Payment processing failed");
         }
     }
 
@@ -189,8 +196,8 @@ class PaymentRequestedListenerTest {
         }
 
         @Test
-        @DisplayName("Should throw when canary payment processing fails")
-        void shouldThrowWhenCanaryPaymentFails() {
+        @DisplayName("Should send FAILED result when canary payment processing fails")
+        void shouldSendFailedResultWhenCanaryPaymentFails() throws Exception {
             
             String envelope = createEnvelope(ORDER_ID, AMOUNT);
             ConsumerRecord<String, String> record = new ConsumerRecord<>(
@@ -201,9 +208,17 @@ class PaymentRequestedListenerTest {
             ReflectionTestUtils.setField(listener, "successRate", 0.0);
             
             
-            assertThatThrownBy(() -> listener.onPaymentRequestedCanary(record))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("[CANARY] Payment processing failed");
+            listener.onPaymentRequestedCanary(record);
+            
+            
+            verify(paymentStatusStore).save(ORDER_ID, "FAILED");
+            
+            ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
+            verify(producer).sendResult(eq(ORDER_ID), payloadCaptor.capture());
+            
+            String resultPayload = payloadCaptor.getValue();
+            assertThat(resultPayload).contains("\"status\":\"FAILED\"");
+            assertThat(resultPayload).contains("[CANARY] Payment processing failed");
         }
     }
 
@@ -213,7 +228,7 @@ class PaymentRequestedListenerTest {
 
         @Test
         @DisplayName("Should record processing time even on failure")
-        void shouldRecordProcessingTimeOnFailure() {
+        void shouldRecordProcessingTimeOnFailure() throws Exception {
             
             String envelope = createEnvelope(ORDER_ID, AMOUNT);
             ConsumerRecord<String, String> record = new ConsumerRecord<>(
@@ -222,11 +237,7 @@ class PaymentRequestedListenerTest {
             ReflectionTestUtils.setField(listener, "successRate", 0.0);
             
             
-            try {
-                listener.onPaymentRequested(record);
-            } catch (Exception ignored) {
-                
-            }
+            listener.onPaymentRequested(record);
             
             
             verify(processingTime).record(anyLong(), eq(TimeUnit.NANOSECONDS));

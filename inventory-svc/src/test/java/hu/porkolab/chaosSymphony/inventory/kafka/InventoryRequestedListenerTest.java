@@ -17,7 +17,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -115,8 +114,8 @@ class InventoryRequestedListenerTest {
     }
 
     @Test
-    @DisplayName("Should reject invalid item count")
-    void shouldRejectInvalidItemCount() {
+    @DisplayName("Should send OUT_OF_STOCK for invalid item count")
+    void shouldSendOutOfStockForInvalidItemCount() {
 
         String invalidEnvelope = """
                 {
@@ -131,14 +130,20 @@ class InventoryRequestedListenerTest {
         when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
 
 
-        assertThatThrownBy(() -> listener.onInventoryRequested(record))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Invalid item count");
+        listener.onInventoryRequested(record);
+
+
+        ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
+        verify(producer).sendResult(eq(ORDER_ID), payloadCaptor.capture());
+
+        String resultPayload = payloadCaptor.getValue();
+        assertThat(resultPayload).contains("\"status\":\"OUT_OF_STOCK\"");
+        assertThat(resultPayload).contains("Invalid item count");
     }
 
     @Test
-    @DisplayName("Should throw when inventory unavailable")
-    void shouldThrowWhenInventoryUnavailable() {
+    @DisplayName("Should send OUT_OF_STOCK when inventory unavailable")
+    void shouldSendOutOfStockWhenInventoryUnavailable() {
 
         ConsumerRecord<String, String> record = new ConsumerRecord<>(
             "inventory.requested", 0, 0, ORDER_ID, VALID_ENVELOPE);
@@ -148,9 +153,15 @@ class InventoryRequestedListenerTest {
         ReflectionTestUtils.setField(listener, "successRate", 0.0);
 
 
-        assertThatThrownBy(() -> listener.onInventoryRequested(record))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("Inventory unavailable");
+        listener.onInventoryRequested(record);
+
+
+        ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
+        verify(producer).sendResult(eq(ORDER_ID), payloadCaptor.capture());
+
+        String resultPayload = payloadCaptor.getValue();
+        assertThat(resultPayload).contains("\"status\":\"OUT_OF_STOCK\"");
+        assertThat(resultPayload).contains("Inventory unavailable");
     }
 
     @Test
