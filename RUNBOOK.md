@@ -1,7 +1,7 @@
 # Chaos Symphony - Runbook
 
 > **Author:** Dr. Porkoláb Ádám  
-> **Last Updated:** 2024
+> **Last Updated:** 2025.12.12
 
 This document provides step-by-step instructions for handling common operational issues in the Chaos Symphony system.
 
