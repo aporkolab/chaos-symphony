@@ -76,7 +76,7 @@ class ChaosProducerTest {
     class DropTests {
 
         @Test
-        @DisplayName("Should drop message when drop probability is 1.0")
+        @DisplayName("Should throw ChaosDropException when drop probability is 1.0")
         void send_withDropProbabilityOne_shouldDrop() {
             
             ChaosRules.Rule dropRule = new ChaosRules.Rule(1.0, 0.0, 0, 0.0);
@@ -84,7 +84,10 @@ class ChaosProducerTest {
             chaosProducer = new ChaosProducer(kafkaTemplate, () -> rules);
 
             
-            chaosProducer.send("test-topic", "key", "type", "message");
+            org.junit.jupiter.api.Assertions.assertThrows(
+                ChaosProducer.ChaosDropException.class,
+                () -> chaosProducer.send("test-topic", "key", "type", "message")
+            );
 
             
             verify(kafkaTemplate, never()).send(anyString(), anyString(), anyString());
@@ -228,7 +231,7 @@ class ChaosProducerTest {
     class RuleResolutionTests {
 
         @Test
-        @DisplayName("Should use topic-specific rule")
+        @DisplayName("Should use topic-specific rule and throw exception")
         void send_withTopicRule_shouldUseTopicRule() {
             
             ChaosRules.Rule topicDropRule = new ChaosRules.Rule(1.0, 0.0, 0, 0.0);
@@ -236,14 +239,17 @@ class ChaosProducerTest {
             chaosProducer = new ChaosProducer(kafkaTemplate, () -> rules);
 
             
-            chaosProducer.send("specific-topic", "key", "type", "message");
+            org.junit.jupiter.api.Assertions.assertThrows(
+                ChaosProducer.ChaosDropException.class,
+                () -> chaosProducer.send("specific-topic", "key", "type", "message")
+            );
 
             
             verify(kafkaTemplate, never()).send(anyString(), anyString(), anyString());
         }
 
         @Test
-        @DisplayName("Should fallback to type rule when no topic rule")
+        @DisplayName("Should fallback to type rule when no topic rule and throw exception")
         void send_withTypeRuleOnly_shouldUseTypeRule() {
             
             ChaosRules.Rule typeDropRule = new ChaosRules.Rule(1.0, 0.0, 0, 0.0);
@@ -251,7 +257,10 @@ class ChaosProducerTest {
             chaosProducer = new ChaosProducer(kafkaTemplate, () -> rules);
 
             
-            chaosProducer.send("any-topic", "key", "SpecificType", "message");
+            org.junit.jupiter.api.Assertions.assertThrows(
+                ChaosProducer.ChaosDropException.class,
+                () -> chaosProducer.send("any-topic", "key", "SpecificType", "message")
+            );
 
             
             verify(kafkaTemplate, never()).send(anyString(), anyString(), anyString());
