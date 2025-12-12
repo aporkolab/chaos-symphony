@@ -3,7 +3,6 @@ package hu.porkolab.chaosSymphony.orchestrator.kafka;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import hu.porkolab.chaosSymphony.common.chaos.ChaosProducer;
-import hu.porkolab.chaosSymphony.common.idemp.IdempotencyStore;
 import hu.porkolab.chaosSymphony.orchestrator.saga.SagaOrchestrator;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -12,7 +11,6 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.net.SocketTimeoutException;
 
@@ -22,17 +20,14 @@ import java.net.SocketTimeoutException;
 public class OrderCreatedListener {
     
     private final PaymentProducer producer;
-    private final IdempotencyStore idempotencyStore;
     private final SagaOrchestrator sagaOrchestrator;
     private final ObjectMapper objectMapper;
 
     public OrderCreatedListener(
             PaymentProducer producer, 
-            IdempotencyStore idempotencyStore,
             SagaOrchestrator sagaOrchestrator,
             ObjectMapper objectMapper) {
         this.producer = producer;
-        this.idempotencyStore = idempotencyStore;
         this.sagaOrchestrator = sagaOrchestrator;
         this.objectMapper = objectMapper;
     }
@@ -45,15 +40,7 @@ public class OrderCreatedListener {
             autoCreateTopics = "false"
     )
     @KafkaListener(topics = "order.created", groupId = "orchestrator-order-created")
-    @Transactional
     public void onOrderCreated(ConsumerRecord<String, String> rec) {
-        String messageKey = rec.key();
-        
-        if (!idempotencyStore.markIfFirst(messageKey)) {
-            log.warn("Duplicate message detected, skipping: {}", messageKey);
-            return;
-        }
-
         JsonNode root;
         JsonNode event;
         try {
@@ -98,7 +85,8 @@ public class OrderCreatedListener {
         log.info("OrderCreated received for orderId={}, customerId={}, address={} -> initiating payment saga", 
                 orderId, customerId, shippingAddress != null ? shippingAddress : "NOT_PROVIDED");
 
-        var saga = sagaOrchestrator.startSagaAndRequestPayment(orderId, shippingAddress);
+        
+        sagaOrchestrator.startSagaAndRequestPayment(orderId, shippingAddress);
 
         String paymentPayload = objectMapper.createObjectNode()
                 .put("orderId", orderId)
@@ -106,6 +94,7 @@ public class OrderCreatedListener {
                 .put("currency", currency)
                 .toString();
 
+        
         producer.sendPaymentRequested(orderId, paymentPayload);
         
         log.debug("PaymentRequested sent for orderId={}", orderId);

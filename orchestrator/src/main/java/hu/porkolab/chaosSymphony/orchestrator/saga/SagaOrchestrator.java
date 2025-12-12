@@ -66,6 +66,13 @@ public class SagaOrchestrator {
 
     @Transactional
     public SagaInstance startSaga(String orderId) {
+        
+        var existing = sagaRepository.findById(orderId);
+        if (existing.isPresent()) {
+            log.debug("Saga already exists for orderId={}, returning existing", orderId);
+            return existing.get();
+        }
+        
         log.info("Starting saga for orderId={}", orderId);
         ordersStartedCounter.increment();
         SagaInstance saga = SagaInstance.builder()
@@ -85,6 +92,13 @@ public class SagaOrchestrator {
     
     @Transactional
     public SagaInstance startSagaAndRequestPayment(String orderId, String shippingAddress) {
+        
+        var existing = sagaRepository.findById(orderId);
+        if (existing.isPresent()) {
+            log.debug("Saga already exists for orderId={}, returning existing", orderId);
+            return existing.get();
+        }
+        
         log.info("Starting saga and requesting payment for orderId={}, address={}", orderId, shippingAddress);
         ordersStartedCounter.increment();
         SagaInstance saga = SagaInstance.builder()
