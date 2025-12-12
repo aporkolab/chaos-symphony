@@ -12,6 +12,12 @@
 > **Repository:** [github.com/APorkolab/chaos-symphony](https://github.com/APorkolab/chaos-symphony)
 
 ---
+## 🎬 Demo Video
+
+[![Chaos Symphony Demo](https://img.youtube.com/vi/XCwCOwdHuto/maxresdefault.jpg)](https://youtu.be/XCwCOwdHuto)
+
+> 3-minute walkthrough: order processing, fraud detection, chaos engineering, and observability.
+---
 
 **Chaos Symphony** is a production-grade, event-driven microservices platform demonstrating how to build **resilient distributed systems**. It implements an order processing workflow with real business logic (fraud detection, manual review queues), orchestrated via the **Saga pattern**, with built-in **chaos engineering** capabilities.
 
