@@ -35,7 +35,7 @@ public class KafkaErrorHandlingConfig {
     @Bean
     public DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(KafkaTemplate<String, String> tpl) {
         return new DeadLetterPublishingRecoverer(tpl,
-                (rec, ex) -> new TopicPartition(rec.topic() + ".DLT", rec.partition()));
+                (rec, ex) -> new TopicPartition(rec.topic() + ".dlt", rec.partition()));
     }
 
 @Bean
@@ -54,7 +54,7 @@ public DefaultErrorHandler errorHandler(
     var handler = new DefaultErrorHandler(dlpr, backoff);
     handler.setCommitRecovered(true);
 
-    // (opcionális) jobb napló
+    
     handler.setRetryListeners((rec, ex, attempt) -> {
         org.slf4j.LoggerFactory.getLogger(DefaultErrorHandler.class)
             .warn("[DLT] retry #{} topic={} offset={} key={} cause={}",
@@ -74,12 +74,12 @@ public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerCont
     factory.setConsumerFactory(cf);
     factory.setCommonErrorHandler(errorHandler);
 
-    // 🔑 Rekordonkénti ack – ehhez igazodik a commitRecovered viselkedés is
+    
     factory.getContainerProperties()
            .setAckMode(org.springframework.kafka.listener.ContainerProperties.AckMode.RECORD);
 
-    // (opcionális) single-thread feldolgozás teszthez
-    // factory.setConcurrency(1);
+    
+    
 
     return factory;
 }

@@ -73,13 +73,13 @@ public class DlqController {
 		adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
 		try (var admin = AdminClient.create(adminProps)) {
 			var names = admin.listTopics(new ListTopicsOptions().listInternal(false)).names().get();
-			return names.stream().filter(n -> n.endsWith("-dlt")).sorted().collect(Collectors.toList());
+			return names.stream().filter(n -> n.endsWith(".dlt")).sorted().collect(Collectors.toList());
 		}
 	}
 
 	@PostMapping("/{topic}/replay")
 	public ResponseEntity<String> replay(@PathVariable("topic") String dltTopic) throws Exception {
-		if (!dltTopic.endsWith("-dlt")) {
+		if (!dltTopic.endsWith(".dlt")) {
 			return ResponseEntity.badRequest().body("Not a DLT topic");
 		}
 		String original = dltTopic.substring(0, dltTopic.length() - 4);
@@ -208,7 +208,7 @@ public class DlqController {
 	public ResponseEntity<String> replayRange(@PathVariable String topic,
 			@RequestParam long fromOffset, @RequestParam long toOffset) throws Exception {
 
-		if (!topic.endsWith("-dlt"))
+		if (!topic.endsWith(".dlt"))
 			return ResponseEntity.badRequest().body("Not a DLT topic");
 		String original = topic.substring(0, topic.length() - 4);
 		var tp = new org.apache.kafka.common.TopicPartition(topic, 0); 
