@@ -23,7 +23,10 @@ public class ChaosProducer {
         ChaosRules.Rule rule = rulesSupplier.get().ruleFor(topic, type);
         ChaosRules rules = rulesSupplier.get();
         rules.maybeDelay(rule.maxDelayMs());
-        if (rules.hit(rule.pDrop())) { log.warn("[CHAOS] DROP topic={} key={} type={}", topic, key, type); return; }
+        if (rules.hit(rule.pDrop())) { 
+            log.warn("[CHAOS] DROP topic={} key={} type={}", topic, key, type); 
+            throw new ChaosDropException("Chaos DROP triggered for topic=" + topic + " key=" + key);
+        }
         if (rules.hit(rule.pCorrupt())) {
             int cut = Math.max(1, msg.length()/2);
             msg = msg.substring(0, cut);
@@ -33,6 +36,13 @@ public class ChaosProducer {
         if (rules.hit(rule.pDup())) {
             kafka.send(topic, key, msg);
             log.warn("[CHAOS] DUP topic={} key={} type={}", topic, key, type);
+        }
+    }
+    
+    
+    public static class ChaosDropException extends RuntimeException {
+        public ChaosDropException(String message) {
+            super(message);
         }
     }
 }

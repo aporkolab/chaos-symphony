@@ -46,7 +46,7 @@ class DlqControllerSmokeTest {
 
         @SuppressWarnings("unchecked")
         KafkaFuture<Set<String>> fut = mock(KafkaFuture.class);
-        when(fut.get()).thenReturn(Set.of("A", "X.DLT", "Z.DLT"));
+        when(fut.get()).thenReturn(Set.of("A", "order.created-dlt", "payment.requested-dlt"));
         when(ltr.names()).thenReturn(fut);
 
         try (MockedStatic<AdminClient> ms = mockStatic(AdminClient.class)) {
@@ -54,8 +54,8 @@ class DlqControllerSmokeTest {
 
             mvc.perform(get("/api/dlq/topics"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0]").value("X.DLT"))
-                .andExpect(jsonPath("$[1]").value("Z.DLT"));
+                .andExpect(jsonPath("$[0]").value("order.created-dlt"))
+                .andExpect(jsonPath("$[1]").value("payment.requested-dlt"));
         }
     }
 
@@ -174,9 +174,9 @@ class DlqControllerSmokeTest {
         try (MockedStatic<AdminClient> ms = mockStatic(AdminClient.class)) {
             ms.when(() -> AdminClient.create(any(Properties.class))).thenReturn(admin);
 
-            mvc.perform(post("/api/dlq/orders.DLT/replay"))
+            mvc.perform(post("/api/dlq/orders-dlt/replay"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("Replayed 0 records from orders.DLT to orders"));
+                .andExpect(content().string("Replayed 0 records from orders-dlt to orders"));
         }
     }
 
@@ -188,11 +188,11 @@ class DlqControllerSmokeTest {
         when(admin.describeTopics(any(Collection.class))).thenReturn(dtr);
 
         TopicPartitionInfo part = new TopicPartitionInfo(0, null, List.of(), List.of());
-        TopicDescription desc = new TopicDescription("orders.DLT", false, List.of(part));
+        TopicDescription desc = new TopicDescription("orders-dlt", false, List.of(part));
 
         @SuppressWarnings("unchecked")
         KafkaFuture<Map<String, TopicDescription>> fut = mock(KafkaFuture.class);
-        when(fut.get()).thenReturn(Map.of("orders.DLT", desc));
+        when(fut.get()).thenReturn(Map.of("orders-dlt", desc));
         when(dtr.all()).thenReturn(fut);
 
         
@@ -202,7 +202,7 @@ class DlqControllerSmokeTest {
 
         try (MockedStatic<AdminClient> ms = mockStatic(AdminClient.class);
              MockedConstruction<KafkaConsumer> mc = mockConstruction(KafkaConsumer.class, (c, ctx) -> {
-                 TopicPartition tp = new TopicPartition("orders.DLT", 0);
+                 TopicPartition tp = new TopicPartition("orders-dlt", 0);
 
                  
                  @SuppressWarnings("unchecked")
@@ -227,9 +227,9 @@ class DlqControllerSmokeTest {
 
             ms.when(() -> AdminClient.create(any(Properties.class))).thenReturn(admin);
 
-            mvc.perform(post("/api/dlq/orders.DLT/replay"))
+            mvc.perform(post("/api/dlq/orders-dlt/replay"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("Replayed 2 records from orders.DLT to orders"));
+                .andExpect(content().string("Replayed 2 records from orders-dlt to orders"));
         }
     }
 
@@ -250,7 +250,7 @@ class DlqControllerSmokeTest {
         when(template.send(any(org.apache.kafka.clients.producer.ProducerRecord.class))).thenReturn(sendFuture);
 
         try (MockedConstruction<KafkaConsumer> mc = mockConstruction(KafkaConsumer.class, (c, ctx) -> {
-            TopicPartition tp = new TopicPartition("events.DLT", 0);
+            TopicPartition tp = new TopicPartition("events-dlt", 0);
             long now = System.currentTimeMillis();
 
             
@@ -284,11 +284,11 @@ class DlqControllerSmokeTest {
             when(c.poll(any(Duration.class))).thenReturn(batch).thenReturn(empty);
         })) {
 
-            mvc.perform(post("/api/dlq/events.DLT/replay-range")
+            mvc.perform(post("/api/dlq/events-dlt/replay-range")
                     .param("fromOffset", "5")
                     .param("toOffset", "10"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("Replayed 2 records from events.DLT to events"));
+                .andExpect(content().string("Replayed 2 records from events-dlt to events"));
         }
     }
 

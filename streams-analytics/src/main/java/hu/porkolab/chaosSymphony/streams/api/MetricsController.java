@@ -22,9 +22,14 @@ public class MetricsController {
 
     @GetMapping(value = "/slo", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<SloMetrics> getSloMetrics() {
-        Mono<Double> p95LatencyMono = queryPrometheus("histogram_quantile(0.95, sum(rate(processing_time_ms_bucket[5m])) by (le))");
+        
+        
+        Mono<Double> p95LatencyMono = queryPrometheus(
+            "histogram_quantile(0.95, sum(rate(processing_time_ms_seconds_bucket[5m])) by (le)) * 1000"
+        );
+        
         Mono<Double> dltCountMono = queryPrometheus("sum(dlt_messages_total) or vector(0)");
-        Mono<Double> sloBurnRateMono = queryPrometheus("orders_slo_burn_rate{window=\"1h\"} or vector(0)");
+        Mono<Double> sloBurnRateMono = queryPrometheus("orders_slo_burn_rate or vector(0)");
 
         return Mono.zip(p95LatencyMono, dltCountMono, sloBurnRateMono)
                 .map(tuple -> new SloMetrics(
@@ -56,7 +61,7 @@ public class MetricsController {
                 }
             }
         } catch (Exception e) {
-            // Log error or handle
+            
         }
         return 0.0;
     }

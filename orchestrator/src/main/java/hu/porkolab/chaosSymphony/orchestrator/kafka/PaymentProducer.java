@@ -1,10 +1,10 @@
 package hu.porkolab.chaosSymphony.orchestrator.kafka;
 
 import hu.porkolab.chaosSymphony.common.EnvelopeHelper;
+import hu.porkolab.chaosSymphony.common.chaos.ChaosProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -13,7 +13,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Component
 @RequiredArgsConstructor
 public class PaymentProducer {
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ChaosProducer chaosProducer;
     private final Environment environment;
 
     public void sendPaymentRequested(String orderId, String paymentPayloadJson) {
@@ -25,14 +25,16 @@ public class PaymentProducer {
                 ? "payment.requested.canary" 
                 : "payment.requested";
         
-        kafkaTemplate.send(topic, orderId, msg)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.error("CRITICAL: Failed to send payment request for orderId={} to topic {}: {}", 
-                                orderId, topic, ex.getMessage(), ex);
-                    } else {
-                        log.debug("Payment request sent for orderId={} to topic {}", orderId, topic);
-                    }
-                });
+        try {
+            chaosProducer.send(topic, orderId, "PaymentRequested", msg);
+            log.debug("Payment request sent for orderId={} to topic {}", orderId, topic);
+        } catch (ChaosProducer.ChaosDropException e) {
+            log.warn("[CHAOS] Payment request DROPPED for orderId={} to topic {}", orderId, topic);
+            throw e; 
+        } catch (Exception e) {
+            log.error("CRITICAL: Failed to send payment request for orderId={} to topic {}: {}", 
+                    orderId, topic, e.getMessage(), e);
+            throw new RuntimeException(e);
+        }
     }
 }

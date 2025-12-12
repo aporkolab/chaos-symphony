@@ -27,6 +27,8 @@ public class SagaOrchestrator {
     private final Counter compensationsCompleted;
     private final Timer processingTimeTimer;
     private final Counter dltMessagesTotal;
+    private final Counter ordersStartedCounter;
+    private final Counter ordersFailedCounter;
 
     @Autowired
     public SagaOrchestrator(SagaRepository sagaRepository,
@@ -35,7 +37,9 @@ public class SagaOrchestrator {
                             @Qualifier("compensationsTriggered") Counter compensationsTriggered,
                             @Qualifier("compensationsCompleted") Counter compensationsCompleted,
                             @Qualifier("processingTimeTimer") Timer processingTimeTimer,
-                            @Qualifier("dltMessagesTotal") Counter dltMessagesTotal) {
+                            @Qualifier("dltMessagesTotal") Counter dltMessagesTotal,
+                            @Qualifier("ordersStarted") Counter ordersStartedCounter,
+                            @Qualifier("ordersFailed") Counter ordersFailedCounter) {
         this.sagaRepository = sagaRepository;
         this.compensationProducer = compensationProducer;
         this.orderStatusProducer = orderStatusProducer;
@@ -43,6 +47,8 @@ public class SagaOrchestrator {
         this.compensationsCompleted = compensationsCompleted;
         this.processingTimeTimer = processingTimeTimer;
         this.dltMessagesTotal = dltMessagesTotal;
+        this.ordersStartedCounter = ordersStartedCounter;
+        this.ordersFailedCounter = ordersFailedCounter;
     }
 
     
@@ -53,12 +59,15 @@ public class SagaOrchestrator {
              meterRegistry.counter("saga.compensations.triggered"),
              meterRegistry.counter("saga.compensations.completed"),
              Timer.builder("processing_time_ms").register(meterRegistry),
-             meterRegistry.counter("dlt_messages_total"));
+             meterRegistry.counter("dlt_messages_total"),
+             meterRegistry.counter("orders.started"),
+             meterRegistry.counter("orders.failed"));
     }
 
     @Transactional
     public SagaInstance startSaga(String orderId) {
         log.info("Starting saga for orderId={}", orderId);
+        ordersStartedCounter.increment();
         SagaInstance saga = SagaInstance.builder()
             .orderId(orderId)
             .state(SagaState.STARTED)
@@ -77,6 +86,7 @@ public class SagaOrchestrator {
     @Transactional
     public SagaInstance startSagaAndRequestPayment(String orderId, String shippingAddress) {
         log.info("Starting saga and requesting payment for orderId={}, address={}", orderId, shippingAddress);
+        ordersStartedCounter.increment();
         SagaInstance saga = SagaInstance.builder()
             .orderId(orderId)
             .state(SagaState.PAYMENT_PENDING)
@@ -118,6 +128,7 @@ public class SagaOrchestrator {
                 saga.fail(SagaState.PAYMENT_FAILED, reason);
                 saga.transitionTo(SagaState.COMPENSATING);
                 sagaRepository.save(saga);
+                ordersFailedCounter.increment();
                 log.warn("Saga {} PAYMENT_FAILED: {}", orderId, reason);
                 
                 
@@ -169,6 +180,7 @@ public class SagaOrchestrator {
                 saga.fail(SagaState.INVENTORY_FAILED, reason);
                 saga.transitionTo(SagaState.COMPENSATING);
                 sagaRepository.save(saga);
+                ordersFailedCounter.increment();
                 
                 if (saga.getPaymentId() != null) {
                     compensationProducer.requestPaymentRefund(orderId, saga.getPaymentId(), reason);
@@ -211,6 +223,7 @@ public class SagaOrchestrator {
                 saga.fail(SagaState.SHIPPING_FAILED, reason);
                 saga.transitionTo(SagaState.COMPENSATING);
                 sagaRepository.save(saga);
+                ordersFailedCounter.increment();
 
                 if (saga.getInventoryReservationId() != null) {
                     compensationProducer.requestInventoryRelease(
@@ -311,5 +324,7 @@ public class SagaOrchestrator {
     
     public void recordDltMessage() {
         dltMessagesTotal.increment();
+        ordersFailedCounter.increment();
+        log.warn("DLT message recorded - dltCount incremented, ordersFailed incremented");
     }
 }

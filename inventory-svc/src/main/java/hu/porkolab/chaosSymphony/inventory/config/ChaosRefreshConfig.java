@@ -42,7 +42,7 @@ public class ChaosRefreshConfig {
 					.body(Map.class);
 			if (m != null) {
 				var typed = m.entrySet().stream().collect(Collectors.toMap(
-						Map.Entry::getKey,
+						e -> "topic:" + e.getKey(),  
 						e -> {
 							Map<String, Object> v = e.getValue();
 							double pDrop = ((Number) v.getOrDefault("pDrop", 0)).doubleValue();

@@ -6,20 +6,25 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 @Configuration
 public class MetricsConfig {
 
-	private final AtomicLong dltMessageCount = new AtomicLong(0);
 	private final AtomicLong sloBurnRate1h = new AtomicLong(0);
+	
+	
+	private Counter ordersStartedCounter;
+	private Counter ordersFailedCounter;
 
 	@Bean
 	public Counter ordersStarted(MeterRegistry registry) {
-		return Counter.builder("orders.started")
+		this.ordersStartedCounter = Counter.builder("orders.started")
 				.description("Number of orders started")
 				.register(registry);
+		return ordersStartedCounter;
 	}
 
 	@Bean
@@ -31,9 +36,10 @@ public class MetricsConfig {
 
 	@Bean
 	public Counter ordersFailed(MeterRegistry registry) {
-		return Counter.builder("orders.failed")
+		this.ordersFailedCounter = Counter.builder("orders.failed")
 				.description("Number of orders failed")
 				.register(registry);
+		return ordersFailedCounter;
 	}
 
 	@Bean
@@ -66,11 +72,6 @@ public class MetricsConfig {
 	}
 
 	@Bean
-	public AtomicLong dltMessageCountHolder() {
-		return dltMessageCount;
-	}
-
-	@Bean
 	public Gauge sloBurnRateGauge(MeterRegistry registry) {
 		return Gauge.builder("orders_slo_burn_rate", sloBurnRate1h, AtomicLong::doubleValue)
 				.tag("window", "1h")
@@ -81,5 +82,21 @@ public class MetricsConfig {
 	@Bean
 	public AtomicLong sloBurnRateHolder() {
 		return sloBurnRate1h;
+	}
+	
+	
+	@Scheduled(fixedRate = 10000)
+	public void calculateBurnRate() {
+		if (ordersStartedCounter == null || ordersFailedCounter == null) {
+			return;
+		}
+		
+		double started = ordersStartedCounter.count();
+		double failed = ordersFailedCounter.count();
+		
+		if (started > 0) {
+			double errorRate = (failed / started) * 100;
+			sloBurnRate1h.set((long) errorRate);
+		}
 	}
 }

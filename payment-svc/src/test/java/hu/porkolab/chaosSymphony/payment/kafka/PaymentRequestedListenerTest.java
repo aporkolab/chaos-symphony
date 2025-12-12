@@ -43,6 +43,9 @@ class PaymentRequestedListenerTest {
     private Counter paymentsProcessedCanary;
     
     @Mock
+    private Counter dltMessagesTotal;
+    
+    @Mock
     private Timer processingTime;
     
     private ObjectMapper objectMapper;
@@ -72,6 +75,7 @@ class PaymentRequestedListenerTest {
                 paymentStatusStore,
                 paymentsProcessedMain,
                 paymentsProcessedCanary,
+                dltMessagesTotal,
                 processingTime,
                 objectMapper
         );

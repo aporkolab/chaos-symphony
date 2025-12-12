@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, forkJoin, of } from 'rxjs';
 import { switchMap, map, catchError } from 'rxjs/operators';
 import { DlqTopic, DlqMessage } from './dlq.model';
@@ -8,21 +8,26 @@ import { DlqTopic, DlqMessage } from './dlq.model';
   providedIn: 'root'
 })
 export class DlqService {
-  // Use a relative path that will be proxied by the Angular dev server
+  
   private apiUrl = '/api/dlq';
+  
+  private noCacheHeaders = new HttpHeaders({
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache'
+  });
 
   constructor(private http: HttpClient) { }
 
   getDlqTopics(): Observable<DlqTopic[]> {
-    return this.http.get<string[]>(`${this.apiUrl}/topics`).pipe(
+    return this.http.get<string[]>(`${this.apiUrl}/topics`, { headers: this.noCacheHeaders }).pipe(
       switchMap(topicNames => {
         if (topicNames.length === 0) {
           return of([]);
         }
         const topicObservables = topicNames.map(name =>
-          this.http.get<number>(`${this.apiUrl}/${name}/count`).pipe(
+          this.http.get<number>(`${this.apiUrl}/${name}/count`, { headers: this.noCacheHeaders }).pipe(
             map(count => ({ name, messageCount: count } as DlqTopic)),
-            catchError(() => of({ name, messageCount: -1 } as DlqTopic)) // Handle error case
+            catchError(() => of({ name, messageCount: -1 } as DlqTopic)) 
           )
         );
         return forkJoin(topicObservables);
@@ -31,7 +36,7 @@ export class DlqService {
   }
 
   getMessages(topicName: string, count: number = 10): Observable<DlqMessage[]> {
-    return this.http.get<DlqMessage[]>(`${this.apiUrl}/${topicName}/peek?n=${count}`);
+    return this.http.get<DlqMessage[]>(`${this.apiUrl}/${topicName}/peek?n=${count}`, { headers: this.noCacheHeaders });
   }
 
   retryAllForTopic(topicName: string): Observable<any> {

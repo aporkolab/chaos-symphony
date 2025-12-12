@@ -2,6 +2,7 @@ package hu.porkolab.chaosSymphony.orchestrator.kafka;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import hu.porkolab.chaosSymphony.common.chaos.ChaosProducer;
 import hu.porkolab.chaosSymphony.common.idemp.IdempotencyStore;
 import hu.porkolab.chaosSymphony.orchestrator.saga.SagaOrchestrator;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +40,8 @@ public class OrderCreatedListener {
     @RetryableTopic(
             attempts = "4",
             backoff = @Backoff(delay = 1000, multiplier = 2.0, random = true),
-            include = {SocketTimeoutException.class, IllegalStateException.class},
+            include = {SocketTimeoutException.class, IllegalStateException.class, 
+                       ChaosProducer.ChaosDropException.class, RuntimeException.class},
             autoCreateTopics = "false"
     )
     @KafkaListener(topics = "order.created", groupId = "orchestrator-order-created")

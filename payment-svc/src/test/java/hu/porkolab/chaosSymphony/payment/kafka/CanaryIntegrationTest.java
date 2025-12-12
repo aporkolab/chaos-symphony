@@ -68,6 +68,7 @@ class CanaryIntegrationTest {
             PaymentStatusStore paymentStatusStore,
             Counter paymentsProcessedMain,
             Counter paymentsProcessedCanary,
+            Counter dltMessagesTotal,
             Timer processingTime) {
 
             return new PaymentRequestedListener(
@@ -76,6 +77,7 @@ class CanaryIntegrationTest {
                 paymentStatusStore,
                 paymentsProcessedMain,
                 paymentsProcessedCanary,
+                dltMessagesTotal,
                 processingTime,
                 new com.fasterxml.jackson.databind.ObjectMapper()
             );
