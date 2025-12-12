@@ -20,6 +20,13 @@ export class OrderService {
     return this.http.post<OrderResponse>(this.orderApiUrl, command);
   }
 
+  approveOrder(orderId: string): Observable<any> {
+    return this.http.post(`${this.orderApiUrl}/${orderId}/approve`, {});
+  }
+
+  rejectOrder(orderId: string, reason?: string): Observable<any> {
+    return this.http.post(`${this.orderApiUrl}/${orderId}/reject`, { reason: reason || 'Rejected by admin' });
+  }
   
   
   replayLastFiveMinutes(): Observable<void> {

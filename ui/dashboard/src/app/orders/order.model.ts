@@ -2,6 +2,7 @@ export interface CreateOrderCommand {
   customerId: string;
   total: number;
   currency: string;
+  shippingAddress?: string;
 }
 
 export interface OrderResponse {

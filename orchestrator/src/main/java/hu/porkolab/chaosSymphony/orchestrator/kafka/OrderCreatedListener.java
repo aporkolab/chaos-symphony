@@ -6,6 +6,7 @@ import hu.porkolab.chaosSymphony.common.idemp.IdempotencyStore;
 import hu.porkolab.chaosSymphony.orchestrator.saga.SagaOrchestrator;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.retry.annotation.Backoff;
@@ -106,5 +107,12 @@ public class OrderCreatedListener {
         producer.sendPaymentRequested(orderId, paymentPayload);
         
         log.debug("PaymentRequested sent for orderId={}", orderId);
+    }
+
+    @DltHandler
+    public void handleDlt(ConsumerRecord<String, String> rec) {
+        log.error("Message sent to DLT after all retries exhausted: key={}, topic={}", 
+                rec.key(), rec.topic());
+        sagaOrchestrator.recordDltMessage();
     }
 }

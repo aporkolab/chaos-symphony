@@ -4,12 +4,14 @@ import hu.porkolab.chaosSymphony.orchestrator.kafka.CompensationProducer;
 import hu.porkolab.chaosSymphony.orchestrator.kafka.OrderStatusProducer;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -23,18 +25,24 @@ public class SagaOrchestrator {
     private final OrderStatusProducer orderStatusProducer;
     private final Counter compensationsTriggered;
     private final Counter compensationsCompleted;
+    private final Timer processingTimeTimer;
+    private final Counter dltMessagesTotal;
 
     @Autowired
     public SagaOrchestrator(SagaRepository sagaRepository,
                             CompensationProducer compensationProducer,
                             @Autowired(required = false) OrderStatusProducer orderStatusProducer,
                             @Qualifier("compensationsTriggered") Counter compensationsTriggered,
-                            @Qualifier("compensationsCompleted") Counter compensationsCompleted) {
+                            @Qualifier("compensationsCompleted") Counter compensationsCompleted,
+                            @Qualifier("processingTimeTimer") Timer processingTimeTimer,
+                            @Qualifier("dltMessagesTotal") Counter dltMessagesTotal) {
         this.sagaRepository = sagaRepository;
         this.compensationProducer = compensationProducer;
         this.orderStatusProducer = orderStatusProducer;
         this.compensationsTriggered = compensationsTriggered;
         this.compensationsCompleted = compensationsCompleted;
+        this.processingTimeTimer = processingTimeTimer;
+        this.dltMessagesTotal = dltMessagesTotal;
     }
 
     
@@ -43,7 +51,9 @@ public class SagaOrchestrator {
                             MeterRegistry meterRegistry) {
         this(sagaRepository, compensationProducer, null,
              meterRegistry.counter("saga.compensations.triggered"),
-             meterRegistry.counter("saga.compensations.completed"));
+             meterRegistry.counter("saga.compensations.completed"),
+             Timer.builder("processing_time_ms").register(meterRegistry),
+             meterRegistry.counter("dlt_messages_total"));
     }
 
     @Transactional
@@ -179,7 +189,15 @@ public class SagaOrchestrator {
                 saga.setShippingId(shippingId);
                 saga.transitionTo(SagaState.COMPLETED);
                 sagaRepository.save(saga);
-                log.info("Saga {} COMPLETED successfully", orderId);
+                
+                
+                if (saga.getCreatedAt() != null) {
+                    Duration processingDuration = Duration.between(saga.getCreatedAt(), Instant.now());
+                    processingTimeTimer.record(processingDuration);
+                    log.info("Saga {} COMPLETED in {}ms", orderId, processingDuration.toMillis());
+                } else {
+                    log.info("Saga {} COMPLETED successfully", orderId);
+                }
                 sendStatusUpdate(orderId, "COMPLETED", null);
             },
             () -> log.warn("Saga not found for orderId={} on shipping completion", orderId)
@@ -288,5 +306,10 @@ public class SagaOrchestrator {
         if (orderStatusProducer != null) {
             orderStatusProducer.sendStatusUpdate(orderId, status, reason);
         }
+    }
+
+    
+    public void recordDltMessage() {
+        dltMessagesTotal.increment();
     }
 }

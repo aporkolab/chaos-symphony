@@ -31,7 +31,8 @@ export class OrdersComponent implements OnInit, OnDestroy {
     this.orderForm = this.fb.group({
       customerId: ['customer-123', Validators.required],
       total: [100.00, [Validators.required, Validators.min(1)]],
-      currency: ['USD', Validators.required]
+      currency: ['USD', Validators.required],
+      shippingAddress: ['']
     });
   }
 
@@ -102,5 +103,32 @@ export class OrdersComponent implements OnInit, OnDestroy {
           error: (err) => console.error('Failed to send replay command', err)
         });
     }
+  }
+
+  approveOrder(orderId: string): void {
+    this.isLoading = true;
+    this.orderService.approveOrder(orderId)
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: () => {
+          console.log('Order approved:', orderId);
+          this.loadOrders();
+        },
+        error: (err) => console.error('Failed to approve order', err)
+      });
+  }
+
+  rejectOrder(orderId: string): void {
+    const reason = prompt('Rejection reason (optional):');
+    this.isLoading = true;
+    this.orderService.rejectOrder(orderId, reason || undefined)
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: () => {
+          console.log('Order rejected:', orderId);
+          this.loadOrders();
+        },
+        error: (err) => console.error('Failed to reject order', err)
+      });
   }
 }

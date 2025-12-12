@@ -27,6 +27,12 @@
           </div>
           <p class="text-gray-500 text-xs mt-1">Tip: Orders over $1000 trigger fraud review</p>
         </div>
+        <div class="mb-4">
+          <label for="shippingAddress" class="block text-gray-400 text-sm font-bold mb-2">Shipping Address</label>
+          <textarea formControlName="shippingAddress" id="shippingAddress" rows="2"
+                    placeholder="123 Main St, City, Country"
+                    class="bg-gray-700 shadow appearance-none border border-gray-600 rounded w-full py-2 px-3 text-gray-200 leading-tight focus:outline-none focus:shadow-outline resize-none"></textarea>
+        </div>
         <div class="flex items-center justify-between">
           <button type="submit" [disabled]="orderForm.invalid || isLoading"
                   class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:bg-gray-500 w-full">
@@ -52,12 +58,32 @@
       <div *ngIf="recentOrders.length > 0" class="space-y-2">
         <div *ngFor="let order of recentOrders" class="bg-gray-900 p-3 rounded font-mono text-sm text-gray-300">
           <div class="flex justify-between items-center">
-            <span class="text-green-400">{{ order.status === 'PENDING_REVIEW' ? '⚠️ Review:' : '✓ Order:' }}</span>
-            <span class="text-xs text-gray-500">{{ order.status }}</span>
+            <span [ngClass]="{'text-yellow-400': order.status === 'PENDING_REVIEW', 'text-green-400': order.status === 'COMPLETED', 'text-red-400': order.status === 'REJECTED', 'text-blue-400': order.status !== 'PENDING_REVIEW' && order.status !== 'COMPLETED' && order.status !== 'REJECTED'}">
+              {{ order.status === 'PENDING_REVIEW' ? '⚠️ Review Required:' : order.status === 'REJECTED' ? '❌ Rejected:' : order.status === 'COMPLETED' ? '✅ Completed:' : '🔄 Processing:' }}
+            </span>
+            <span class="text-xs px-2 py-1 rounded" 
+                  [ngClass]="{'bg-yellow-900 text-yellow-300': order.status === 'PENDING_REVIEW', 'bg-green-900 text-green-300': order.status === 'COMPLETED', 'bg-red-900 text-red-300': order.status === 'REJECTED', 'bg-blue-900 text-blue-300': order.status !== 'PENDING_REVIEW' && order.status !== 'COMPLETED' && order.status !== 'REJECTED'}">
+              {{ order.status }}
+            </span>
           </div>
-          <div class="mt-1">{{ order.orderId }}</div>
+          <div class="mt-1 text-xs text-gray-400">{{ order.orderId }}</div>
           <p *ngIf="order.reviewReason" class="text-xs text-yellow-400 mt-1">{{ order.reviewReason }}</p>
-          <p *ngIf="!order.reviewReason" class="text-xs text-gray-500 mt-1">Processing by orchestrator...</p>
+          
+          
+          <div *ngIf="order.status === 'PENDING_REVIEW'" class="mt-3 flex gap-2">
+            <button (click)="approveOrder(order.orderId)" 
+                    [disabled]="isLoading"
+                    class="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-xs font-bold py-1 px-3 rounded">
+              ✓ Approve
+            </button>
+            <button (click)="rejectOrder(order.orderId)" 
+                    [disabled]="isLoading"
+                    class="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white text-xs font-bold py-1 px-3 rounded">
+              ✗ Reject
+            </button>
+          </div>
+          
+          <p *ngIf="!order.reviewReason && order.status !== 'PENDING_REVIEW' && order.status !== 'COMPLETED' && order.status !== 'REJECTED'" class="text-xs text-gray-500 mt-1">Processing by orchestrator...</p>
         </div>
       </div>
     </div>

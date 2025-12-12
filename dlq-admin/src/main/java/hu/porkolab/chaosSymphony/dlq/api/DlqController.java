@@ -33,19 +33,19 @@ public class DlqController {
 		this.template = template;
 		Object bs = pf.getConfigurationProperties().get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG);
 
-		// bs lehet Collection, String vagy bármi -> normalizáljuk
+		
 		String raw = (bs == null) ? "" : bs.toString();
-		// ha listaként jön: "[127.0.0.1:29092]" -> "127.0.0.1:29092"
+		
 		if (raw.startsWith("[") && raw.endsWith("]")) {
 			raw = raw.substring(1, raw.length() - 1);
 		}
-		// szóközök kidobása
+		
 		raw = raw.replaceAll("\\s+", "");
-		// végső fallback
+		
 		this.bootstrap = raw.isBlank() ? "127.0.0.1:29092" : raw;
 	}
 
-	/* ---------- helpers ---------- */
+	
 
 	private Properties consumerProps(String groupId) {
 		Properties p = new Properties();
@@ -61,11 +61,11 @@ public class DlqController {
 
 	private void seekBeginning(KafkaConsumer<String, String> c, String topic) {
 		c.subscribe(Collections.singletonList(topic));
-		c.poll(Duration.ofMillis(0)); // trigger assignment
-		c.seekToBeginning(c.assignment()); // start from earliest
+		c.poll(Duration.ofMillis(0)); 
+		c.seekToBeginning(c.assignment()); 
 	}
 
-	/* ---------- endpoints ---------- */
+	
 
 	@GetMapping("/topics")
 	public List<String> listDlqTopics() throws Exception {
@@ -73,18 +73,18 @@ public class DlqController {
 		adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
 		try (var admin = AdminClient.create(adminProps)) {
 			var names = admin.listTopics(new ListTopicsOptions().listInternal(false)).names().get();
-			return names.stream().filter(n -> n.endsWith(".DLT")).sorted().collect(Collectors.toList());
+			return names.stream().filter(n -> n.endsWith("-dlt")).sorted().collect(Collectors.toList());
 		}
 	}
 
 	@PostMapping("/{topic}/replay")
 	public ResponseEntity<String> replay(@PathVariable("topic") String dltTopic) throws Exception {
-		if (!dltTopic.endsWith(".DLT")) {
+		if (!dltTopic.endsWith("-dlt")) {
 			return ResponseEntity.badRequest().body("Not a DLT topic");
 		}
 		String original = dltTopic.substring(0, dltTopic.length() - 4);
 
-		// Partíciók lekérése adminból
+		
 		Properties adminProps = new Properties();
 		adminProps.put(org.apache.kafka.clients.admin.AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
 		var tps = new ArrayList<org.apache.kafka.common.TopicPartition>();
@@ -100,7 +100,7 @@ public class DlqController {
 		String gid = "dlq-replay-" + java.util.UUID.randomUUID();
 
 		try (var consumer = new org.apache.kafka.clients.consumer.KafkaConsumer<String, String>(consumerProps(gid))) {
-			// Kötelező: assign + seekToBeginning -> garantáltan a legelejéről olvasunk
+			
 			consumer.assign(tps);
 			consumer.seekToBeginning(tps);
 
@@ -110,7 +110,7 @@ public class DlqController {
 					break;
 
 				for (var rec : recs) {
-					// őrizd meg a key-t, timestampet, headereket
+					
 					var pr = new org.apache.kafka.clients.producer.ProducerRecord<>(
 							original, null, rec.timestamp(), rec.key(), rec.value(), rec.headers());
 					try {
@@ -208,10 +208,10 @@ public class DlqController {
 	public ResponseEntity<String> replayRange(@PathVariable String topic,
 			@RequestParam long fromOffset, @RequestParam long toOffset) throws Exception {
 
-		if (!topic.endsWith(".DLT"))
+		if (!topic.endsWith("-dlt"))
 			return ResponseEntity.badRequest().body("Not a DLT topic");
 		String original = topic.substring(0, topic.length() - 4);
-		var tp = new org.apache.kafka.common.TopicPartition(topic, 0); // ha több partíció: iteráld végig
+		var tp = new org.apache.kafka.common.TopicPartition(topic, 0); 
 
 		long replayed = 0;
 		try (var c = new KafkaConsumer<String, String>(consumerProps("dlq-range-" + UUID.randomUUID()))) {
