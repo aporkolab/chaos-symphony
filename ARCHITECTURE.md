@@ -151,6 +151,11 @@ sequenceDiagram
     *   **Role Mapping:** Custom converter handles both Keycloak (`realm_access.roles`) and Auth0 (`permissions`) claim formats
     *   **Development Mode:** `spring.profiles.active=dev` disables authentication for local development
     *   **Trade-off:** Token revocation requires short expiry times or token introspection (not implemented)
+*   **ADR-0008: In-Memory Fraud Velocity Tracking:** The fraud detection service tracks customer order velocity using an in-memory `ConcurrentHashMap`:
+    *   **Why In-Memory?** Simplicity for demonstration purposes; no external dependency required
+    *   **Trade-off:** Velocity data is lost on service restart, potentially allowing fraud patterns to go undetected
+    *   **Production Recommendation:** Replace with Redis Sorted Sets for time-windowed counting with persistence, or a database-backed solution with TTL-based cleanup
+    *   **Current Mitigation:** High-value orders are always flagged regardless of velocity, providing a safety net
 
 ## 5. Deployment - Kubernetes & Canary
 

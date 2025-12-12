@@ -34,13 +34,44 @@ Here are the essential cURL commands for demonstrating the core functionalities 
 This is the main entry point for starting the Saga workflow.
 
 ```bash
-# Start a normal "happy path" order
-curl -X POST "http://localhost:8080/api/orders/start?amount=42"
+# Create an order using the full API (JSON body)
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": "cust-123",
+    "total": 99.99,
+    "currency": "USD",
+    "shippingAddress": "123 Main St"
+  }'
 
-# Start an order designed to fail at the inventory step
-# The chaos-svc is pre-configured to recognize this specific orderId
-curl -X POST "http://localhost:8080/api/orders/start?amount=10&orderId=BREAK-ME"
+# Create a high-value order (triggers fraud review)
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": "cust-123",
+    "total": 1500.00,
+    "currency": "USD"
+  }'
 
+# Quick order creation for demos (query params)
+curl -X POST "http://localhost:8080/api/orders/start?amount=42&customerId=customer-123"
+
+# Quick high-value order (will be flagged for review)
+curl -X POST "http://localhost:8080/api/orders/start?amount=1500&customerId=customer-456"
+
+# List orders pending review
+curl -s http://localhost:8080/api/orders/pending-review | jq .
+
+# Approve an order after manual review
+curl -X POST "http://localhost:8080/api/orders/{orderId}/approve"
+
+# Reject an order with reason
+curl -X POST "http://localhost:8080/api/orders/{orderId}/reject" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Suspected fraud - address mismatch"}'
+
+# Get all orders (paginated)
+curl -s "http://localhost:8080/api/orders?page=0&size=10" | jq .
 ```
 
 ### `chaos-svc` (Port `8088`)

@@ -27,7 +27,10 @@ public class FraudDetectionService {
     private final Counter ordersFlagged;
     private final Counter ordersAutoRejected;
 
-    
+    // TODO: Production deployment should use Redis or database for velocity tracking persistence.
+    // Current in-memory implementation loses data on service restart, which could allow
+    // fraudulent velocity patterns to go undetected after deployments or crashes.
+    // See: https://redis.io/docs/data-types/sorted-sets/ for time-windowed counting pattern.
     private final Map<String, List<Long>> customerOrderTimestamps = new ConcurrentHashMap<>();
 
     @Value("${fraud.velocity.window.minutes:60}")

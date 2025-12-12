@@ -5,11 +5,16 @@
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
 [![Kafka](https://img.shields.io/badge/Kafka-Streams-black.svg)](https://kafka.apache.org/)
-[![Coverage](https://img.shields.io/badge/coverage-60%25+-brightgreen.svg)](https://github.com/APorkolab/chaos-symphony)
+[![Coverage](https://img.shields.io/badge/coverage-60%25%20min%20enforced-brightgreen.svg)](https://github.com/APorkolab/chaos-symphony)
 [![Security](https://img.shields.io/badge/security-OAuth2%2FJWT-blue.svg)](https://github.com/APorkolab/chaos-symphony)
 
 > **Author:** Dr. Ádám Porkoláb  
 > **Repository:** [github.com/APorkolab/chaos-symphony](https://github.com/APorkolab/chaos-symphony)
+
+## Project Stats
+
+- **Development period:** August – December 2025
+- **Commits:** 130+
 
 ---
 ## 🎬 Demo Video
@@ -226,7 +231,7 @@ The project implements a comprehensive testing pyramid:
 ### Contract Tests
 - **Pact** for consumer-driven contract testing between services
 - Ensures API compatibility between producer and consumer services
-- Contract files stored in `/contracts/` directory
+- Contract files generated in `target/pacts/` during test execution
 
 ### E2E Tests
 - Full Saga workflow tests using Testcontainers
