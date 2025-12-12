@@ -20,6 +20,11 @@ class OrderStatusTest {
             OrderStatus.PAID,
             OrderStatus.ALLOCATED,
             OrderStatus.SHIPPED,
+            OrderStatus.COMPLETED,
+            OrderStatus.CANCELLED,
+            OrderStatus.PAYMENT_FAILED,
+            OrderStatus.INVENTORY_FAILED,
+            OrderStatus.SHIPPING_FAILED,
             OrderStatus.FAILED
         );
     }
@@ -29,9 +34,15 @@ class OrderStatusTest {
     class TerminalStateChecks {
 
         @Test
-        @DisplayName("SHIPPED should be terminal")
-        void shippedShouldBeTerminal() {
-            assertThat(OrderStatus.SHIPPED.isTerminal()).isTrue();
+        @DisplayName("COMPLETED should be terminal")
+        void completedShouldBeTerminal() {
+            assertThat(OrderStatus.COMPLETED.isTerminal()).isTrue();
+        }
+
+        @Test
+        @DisplayName("CANCELLED should be terminal")
+        void cancelledShouldBeTerminal() {
+            assertThat(OrderStatus.CANCELLED.isTerminal()).isTrue();
         }
 
         @Test
@@ -44,6 +55,30 @@ class OrderStatusTest {
         @DisplayName("REJECTED should be terminal")
         void rejectedShouldBeTerminal() {
             assertThat(OrderStatus.REJECTED.isTerminal()).isTrue();
+        }
+
+        @Test
+        @DisplayName("PAYMENT_FAILED should be terminal")
+        void paymentFailedShouldBeTerminal() {
+            assertThat(OrderStatus.PAYMENT_FAILED.isTerminal()).isTrue();
+        }
+
+        @Test
+        @DisplayName("INVENTORY_FAILED should be terminal")
+        void inventoryFailedShouldBeTerminal() {
+            assertThat(OrderStatus.INVENTORY_FAILED.isTerminal()).isTrue();
+        }
+
+        @Test
+        @DisplayName("SHIPPING_FAILED should be terminal")
+        void shippingFailedShouldBeTerminal() {
+            assertThat(OrderStatus.SHIPPING_FAILED.isTerminal()).isTrue();
+        }
+
+        @Test
+        @DisplayName("SHIPPED should not be terminal")
+        void shippedShouldNotBeTerminal() {
+            assertThat(OrderStatus.SHIPPED.isTerminal()).isFalse();
         }
 
         @Test
@@ -116,7 +151,9 @@ class OrderStatusTest {
         assertThat(OrderStatus.valueOf("REJECTED")).isEqualTo(OrderStatus.REJECTED);
         assertThat(OrderStatus.valueOf("PAID")).isEqualTo(OrderStatus.PAID);
         assertThat(OrderStatus.valueOf("ALLOCATED")).isEqualTo(OrderStatus.ALLOCATED);
-        assertThat(OrderStatus.valueOf("SHIPPED")).isEqualTo(OrderStatus.SHIPPED);
+        OrderStatus.valueOf("SHIPPED");
+        assertThat(OrderStatus.valueOf("COMPLETED")).isEqualTo(OrderStatus.COMPLETED);
+        assertThat(OrderStatus.valueOf("CANCELLED")).isEqualTo(OrderStatus.CANCELLED);
         assertThat(OrderStatus.valueOf("FAILED")).isEqualTo(OrderStatus.FAILED);
     }
 }

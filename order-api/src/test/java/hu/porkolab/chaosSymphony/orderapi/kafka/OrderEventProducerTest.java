@@ -7,7 +7,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 
+import java.util.concurrent.CompletableFuture;
+
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class OrderEventProducerTest {
@@ -18,6 +22,8 @@ class OrderEventProducerTest {
 
     @BeforeEach
     void setup() {
+        when(kafkaTemplate.send(anyString(), anyString(), anyString()))
+            .thenReturn(CompletableFuture.completedFuture(null));
         producer = new OrderEventProducer(kafkaTemplate);
     }
 
