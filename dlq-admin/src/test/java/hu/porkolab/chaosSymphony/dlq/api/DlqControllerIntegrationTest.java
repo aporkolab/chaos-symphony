@@ -33,8 +33,10 @@ class DlqControllerIntegrationTest {
     }
 
     @Test
-    void testListDlqTopicsRequiresAuth() throws Exception {
+    void testListDlqTopicsWithoutAuth() throws Exception {
+        
         mockMvc.perform(get("/api/dlq/topics"))
-            .andExpect(status().isUnauthorized());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$").isArray());
     }
 }

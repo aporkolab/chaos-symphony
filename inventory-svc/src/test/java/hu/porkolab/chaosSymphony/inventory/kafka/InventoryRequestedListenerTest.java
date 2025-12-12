@@ -181,4 +181,85 @@ class InventoryRequestedListenerTest {
         String resultPayload = payloadCaptor.getValue();
         assertThat(resultPayload).contains("\"items\":1");
     }
+
+    @Test
+    @DisplayName("Should handle invalid JSON gracefully")
+    void shouldHandleInvalidJson() {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>(
+            "inventory.requested", 0, 0, ORDER_ID, "not-valid-json");
+        when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
+
+        
+        listener.onInventoryRequested(record);
+
+        verify(producer, never()).sendResult(anyString(), anyString());
+        verify(processingTime).record(anyLong(), eq(TimeUnit.NANOSECONDS));
+    }
+
+    @Test
+    @DisplayName("Should skip processing when orderId is missing")
+    void shouldSkipWhenOrderIdMissing() {
+        String envelopeWithoutOrderId = """
+                {
+                    "eventId": "event-456",
+                    "type": "InventoryRequested",
+                    "payload": "{\\"items\\": 5}"
+                }
+                """;
+        ConsumerRecord<String, String> record = new ConsumerRecord<>(
+            "inventory.requested", 0, 0, ORDER_ID, envelopeWithoutOrderId);
+        when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
+
+        listener.onInventoryRequested(record);
+
+        verify(producer, never()).sendResult(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should skip processing when orderId is blank")
+    void shouldSkipWhenOrderIdBlank() {
+        String envelopeWithBlankOrderId = """
+                {
+                    "orderId": "  ",
+                    "eventId": "event-456",
+                    "type": "InventoryRequested",
+                    "payload": "{\\"items\\": 5}"
+                }
+                """;
+        ConsumerRecord<String, String> record = new ConsumerRecord<>(
+            "inventory.requested", 0, 0, ORDER_ID, envelopeWithBlankOrderId);
+        when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
+
+        listener.onInventoryRequested(record);
+
+        verify(producer, never()).sendResult(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Should record processing time on success")
+    void shouldRecordProcessingTimeOnSuccess() {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>(
+            "inventory.requested", 0, 0, ORDER_ID, VALID_ENVELOPE);
+        when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
+
+        listener.onInventoryRequested(record);
+
+        verify(processingTime).record(anyLong(), eq(TimeUnit.NANOSECONDS));
+    }
+
+    @Test
+    @DisplayName("Should record processing time on failure")
+    void shouldRecordProcessingTimeOnFailure() {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>(
+            "inventory.requested", 0, 0, ORDER_ID, VALID_ENVELOPE);
+        when(idempotencyStore.markIfFirst(ORDER_ID)).thenReturn(true);
+        ReflectionTestUtils.setField(listener, "successRate", 0.0);
+
+        try {
+            listener.onInventoryRequested(record);
+        } catch (IllegalStateException ignored) {
+        }
+
+        verify(processingTime).record(anyLong(), eq(TimeUnit.NANOSECONDS));
+    }
 }
