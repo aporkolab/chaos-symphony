@@ -26,6 +26,9 @@ public class OrderOutbox {
     @Column(name = "aggregate_id", nullable = false)
     private UUID aggregateId;
 
+    @Column(name = "aggregate_type", nullable = false)
+    private String aggregateType;
+
     @Column(nullable = false)
     private String type;
 

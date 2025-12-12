@@ -126,6 +126,7 @@ public class OrderService {
             OrderOutbox outboxEvent = OrderOutbox.builder()
                     .id(UUID.randomUUID())
                     .aggregateId(order.getId())
+                    .aggregateType("Order")
                     .type(eventPayload.getClass().getSimpleName())
                     .payload(payloadJson)
                     .occurredAt(timestamp)

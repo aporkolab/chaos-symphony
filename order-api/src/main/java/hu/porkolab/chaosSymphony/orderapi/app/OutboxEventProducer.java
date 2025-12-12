@@ -23,7 +23,7 @@ public class OutboxEventProducer {
 		String payloadJson = objectMapper.writeValueAsString(event);
 		String eventType = event.getClass().getSimpleName();
 
-		// Feltételezzük, hogy az esemény tartalmaz egy orderId mezőt
+		
 		UUID orderId = (UUID) event.getClass().getMethod("getOrderId").invoke(event);
 
 		EventEnvelope envelope = new EventEnvelope(
@@ -37,6 +37,7 @@ public class OutboxEventProducer {
 		OrderOutbox outboxEvent = OrderOutbox.builder()
 				.id(UUID.randomUUID())
 				.aggregateId(orderId)
+				.aggregateType("Order")
 				.type(eventType)
 				.payload(envelopeJson)
 				.occurredAt(Instant.now())
