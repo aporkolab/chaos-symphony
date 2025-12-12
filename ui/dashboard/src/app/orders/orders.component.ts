@@ -3,12 +3,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { OrderService } from './order.service';
 import { finalize, interval, Subscription, switchMap } from 'rxjs';
 import { CommonModule } from '@angular/common';
-
-interface OrderResponse {
-  orderId: string;
-  status: string;
-  reviewReason?: string;
-}
+import { Order, OrderResponse, PagedOrdersResponse } from './order.model';
 
 @Component({
   selector: 'app-orders',
@@ -21,7 +16,16 @@ export class OrdersComponent implements OnInit, OnDestroy {
 
   orderForm: FormGroup;
   isLoading = false;
-  recentOrders: OrderResponse[] = [];
+  
+  
+  orders: Order[] = [];
+  currentPage = 0;
+  pageSize = 15;
+  totalElements = 0;
+  totalPages = 0;
+  hasNext = false;
+  hasPrevious = false;
+  
   private pollSubscription?: Subscription;
 
   constructor(
@@ -39,10 +43,11 @@ export class OrdersComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadOrders();
     
+    
     this.pollSubscription = interval(3000).pipe(
-      switchMap(() => this.orderService.getOrders())
+      switchMap(() => this.orderService.getOrders(this.currentPage, this.pageSize))
     ).subscribe({
-      next: (orders) => this.updateOrders(orders),
+      next: (response) => this.updateFromResponse(response),
       error: (err) => console.error('Failed to poll orders', err)
     });
   }
@@ -52,22 +57,66 @@ export class OrdersComponent implements OnInit, OnDestroy {
   }
 
   loadOrders(): void {
-    this.orderService.getOrders().subscribe({
-      next: (orders) => this.updateOrders(orders),
-      error: (err) => console.error('Failed to load orders', err)
-    });
+    this.isLoading = true;
+    this.orderService.getOrders(this.currentPage, this.pageSize)
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: (response) => this.updateFromResponse(response),
+        error: (err) => console.error('Failed to load orders', err)
+      });
   }
 
-  private updateOrders(orders: any[]): void {
+  private updateFromResponse(response: PagedOrdersResponse): void {
+    this.orders = response.content;
+    this.currentPage = response.page;
+    this.totalElements = response.totalElements;
+    this.totalPages = response.totalPages;
+    this.hasNext = response.hasNext;
+    this.hasPrevious = response.hasPrevious;
+  }
+
+  goToPage(page: number): void {
+    if (page >= 0 && page < this.totalPages) {
+      this.currentPage = page;
+      this.loadOrders();
+    }
+  }
+
+  nextPage(): void {
+    if (this.hasNext) {
+      this.goToPage(this.currentPage + 1);
+    }
+  }
+
+  previousPage(): void {
+    if (this.hasPrevious) {
+      this.goToPage(this.currentPage - 1);
+    }
+  }
+
+  firstPage(): void {
+    this.goToPage(0);
+  }
+
+  lastPage(): void {
+    this.goToPage(this.totalPages - 1);
+  }
+
+  
+  get pageNumbers(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(0, this.currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(this.totalPages, start + maxVisible);
     
-    this.recentOrders = orders
-      .slice(-10)
-      .reverse()
-      .map(o => ({
-        orderId: o.id || o.orderId,
-        status: o.status,
-        reviewReason: o.reviewReason
-      }));
+    if (end - start < maxVisible) {
+      start = Math.max(0, end - maxVisible);
+    }
+    
+    for (let i = start; i < end; i++) {
+      pages.push(i);
+    }
+    return pages;
   }
 
   onSubmit(): void {
@@ -81,10 +130,8 @@ export class OrdersComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response: OrderResponse) => {
           
-          this.recentOrders.unshift(response);
-          if (this.recentOrders.length > 10) {
-            this.recentOrders.pop();
-          }
+          this.currentPage = 0;
+          this.loadOrders();
           this.orderForm.patchValue({ total: Math.round(100 + Math.random() * 2000) });
         },
         error: (err) => {
@@ -130,5 +177,23 @@ export class OrdersComponent implements OnInit, OnDestroy {
         },
         error: (err) => console.error('Failed to reject order', err)
       });
+  }
+
+  getStatusIcon(status: string): string {
+    switch (status) {
+      case 'PENDING_REVIEW': return '⚠️';
+      case 'COMPLETED': return '✅';
+      case 'REJECTED': return '❌';
+      default: return '🔄';
+    }
+  }
+
+  getStatusLabel(status: string): string {
+    switch (status) {
+      case 'PENDING_REVIEW': return 'Review Required';
+      case 'COMPLETED': return 'Completed';
+      case 'REJECTED': return 'Rejected';
+      default: return 'Processing';
+    }
   }
 }

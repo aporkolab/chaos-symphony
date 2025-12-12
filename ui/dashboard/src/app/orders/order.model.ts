@@ -17,4 +17,15 @@ export interface Order {
   total: number;
   currency: string;
   createdAt: string;
+  reviewReason?: string;
+}
+
+export interface PagedOrdersResponse {
+  content: Order[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
 }

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { CreateOrderCommand, Order, OrderResponse } from './order.model';
+import { CreateOrderCommand, Order, OrderResponse, PagedOrdersResponse } from './order.model';
 
 @Injectable({
   providedIn: 'root'
@@ -17,8 +17,14 @@ export class OrderService {
 
   constructor(private http: HttpClient) { }
 
-  getOrders(): Observable<Order[]> {
-    return this.http.get<Order[]>(this.orderApiUrl, { headers: this.noCacheHeaders });
+  getOrders(page: number = 0, size: number = 20): Observable<PagedOrdersResponse> {
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    return this.http.get<PagedOrdersResponse>(this.orderApiUrl, { 
+      headers: this.noCacheHeaders,
+      params 
+    });
   }
 
   createOrder(command: CreateOrderCommand): Observable<OrderResponse> {

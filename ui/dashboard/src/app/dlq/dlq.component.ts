@@ -18,6 +18,8 @@ export class DlqComponent implements OnInit, OnDestroy {
   messages: DlqMessage[] = [];
   isLoadingTopics = false;
   isLoadingMessages = false;
+  error: string | null = null;
+  debugInfo: string | null = null;
   private pollSubscription?: Subscription;
 
   constructor(private dlqService: DlqService) { }
@@ -30,7 +32,9 @@ export class DlqComponent implements OnInit, OnDestroy {
       switchMap(() => this.dlqService.getDlqTopics())
     ).subscribe({
       next: (data) => {
+        this.error = null;
         this.topics = data;
+        console.log('[DLQ Component] Poll received topics:', data);
         
         if (this.selectedTopic) {
           const updated = data.find(t => t.name === this.selectedTopic!.name);
@@ -40,7 +44,10 @@ export class DlqComponent implements OnInit, OnDestroy {
           }
         }
       },
-      error: (err) => console.error('Failed to poll DLQ topics', err)
+      error: (err) => {
+        console.error('[DLQ Component] Poll error:', err);
+        this.error = this.formatError(err);
+      }
     });
   }
 
@@ -50,11 +57,40 @@ export class DlqComponent implements OnInit, OnDestroy {
 
   loadTopics(): void {
     this.isLoadingTopics = true;
+    this.error = null;
+    this.debugInfo = 'Fetching /api/dlq/topics...';
+    
     this.dlqService.getDlqTopics()
       .pipe(finalize(() => this.isLoadingTopics = false))
-      .subscribe(data => {
-        this.topics = data;
+      .subscribe({
+        next: (data) => {
+          console.log('[DLQ Component] Topics loaded:', data);
+          this.topics = data;
+          this.debugInfo = `Loaded ${data.length} topics`;
+          this.error = null;
+        },
+        error: (err) => {
+          console.error('[DLQ Component] Load error:', err);
+          this.error = this.formatError(err);
+          this.debugInfo = `Error: ${JSON.stringify(err)}`;
+        }
       });
+  }
+  
+  private formatError(err: any): string {
+    if (err.status === 0) {
+      return 'Nem sikerült kapcsolódni a dlq-admin szolgáltatáshoz. Ellenőrizd, hogy fut-e a 8089-es porton.';
+    }
+    if (err.status === 404) {
+      return 'A /api/dlq/topics végpont nem található (404).';
+    }
+    if (err.error?.message) {
+      return err.error.message;
+    }
+    if (err.message) {
+      return err.message;
+    }
+    return `Hiba: ${err.status || 'ismeretlen'} - ${err.statusText || ''}`;
   }
   
   private refreshMessages(): void {
@@ -65,13 +101,17 @@ export class DlqComponent implements OnInit, OnDestroy {
   }
 
   selectTopic(topic: DlqTopic): void {
+    console.log('[DLQ Component] Selected topic:', topic);
     this.selectedTopic = topic;
     this.messages = [];
     if (topic) {
       this.isLoadingMessages = true;
       this.dlqService.getMessages(topic.name, 20) 
         .pipe(finalize(() => this.isLoadingMessages = false))
-        .subscribe(msgs => this.messages = msgs);
+        .subscribe(msgs => {
+          console.log('[DLQ Component] Messages loaded:', msgs);
+          this.messages = msgs;
+        });
     }
   }
 
@@ -80,10 +120,16 @@ export class DlqComponent implements OnInit, OnDestroy {
       this.isLoadingTopics = true; 
       this.dlqService.retryAllForTopic(topic.name)
         .pipe(finalize(() => this.loadTopics())) 
-        .subscribe(response => {
-          console.log('Replay response:', response);
-          this.selectedTopic = null; 
-          this.messages = [];
+        .subscribe({
+          next: response => {
+            console.log('[DLQ Component] Replay response:', response);
+            this.selectedTopic = null; 
+            this.messages = [];
+          },
+          error: err => {
+            console.error('[DLQ Component] Replay error:', err);
+            this.error = this.formatError(err);
+          }
         });
     }
   }
@@ -93,10 +139,16 @@ export class DlqComponent implements OnInit, OnDestroy {
       this.isLoadingTopics = true;
       this.dlqService.purgeTopic(topic.name)
         .pipe(finalize(() => this.loadTopics()))
-        .subscribe(response => {
-          console.log('Purge response:', response);
-          this.selectedTopic = null;
-          this.messages = [];
+        .subscribe({
+          next: response => {
+            console.log('[DLQ Component] Purge response:', response);
+            this.selectedTopic = null;
+            this.messages = [];
+          },
+          error: err => {
+            console.error('[DLQ Component] Purge error:', err);
+            this.error = this.formatError(err);
+          }
         });
     }
   }

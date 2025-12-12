@@ -68,21 +68,35 @@ public class DlqController {
 	
 
 	@GetMapping("/topics")
-	public List<String> listDlqTopics() throws Exception {
+	public ResponseEntity<List<String>> listDlqTopics() {
 		Properties adminProps = new Properties();
 		adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
 		try (var admin = AdminClient.create(adminProps)) {
 			var names = admin.listTopics(new ListTopicsOptions().listInternal(false)).names().get();
-			return names.stream().filter(n -> n.endsWith(".dlt")).sorted().collect(Collectors.toList());
+			
+			var dltTopics = names.stream()
+					.filter(n -> n.endsWith("-dlt") || n.endsWith("-DLT") || n.endsWith(".DLT") || n.endsWith(".dlt"))
+					.sorted()
+					.collect(Collectors.toList());
+			log.info("Found {} DLT topics: {}", dltTopics.size(), dltTopics);
+			log.info("All Kafka topics: {}", names);
+			return ResponseEntity.ok(dltTopics);
+		} catch (Exception e) {
+			log.error("Failed to list DLT topics from Kafka", e);
+			return ResponseEntity.ok(java.util.Collections.emptyList());
 		}
 	}
 
 	@PostMapping("/{topic}/replay")
 	public ResponseEntity<String> replay(@PathVariable("topic") String dltTopic) throws Exception {
-		if (!dltTopic.endsWith(".dlt")) {
+		String original;
+		if (dltTopic.endsWith("-dlt") || dltTopic.endsWith("-DLT")) {
+			original = dltTopic.substring(0, dltTopic.length() - 4);
+		} else if (dltTopic.endsWith(".DLT") || dltTopic.endsWith(".dlt")) {
+			original = dltTopic.substring(0, dltTopic.length() - 4);
+		} else {
 			return ResponseEntity.badRequest().body("Not a DLT topic");
 		}
-		String original = dltTopic.substring(0, dltTopic.length() - 4);
 
 		
 		Properties adminProps = new Properties();
@@ -144,14 +158,16 @@ public class DlqController {
 	}
 
 	@GetMapping("/{topic}/count")
-	public long count(@PathVariable String topic) throws Exception {
+	public ResponseEntity<Long> count(@PathVariable String topic) {
 		Properties adminProps = new Properties();
 		adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
 		try (var admin = AdminClient.create(adminProps)) {
 			var desc = admin.describeTopics(Collections.singletonList(topic)).all().get();
 			var info = desc.get(topic);
-			if (info == null)
-				return 0;
+			if (info == null) {
+				log.warn("Topic {} not found", topic);
+				return ResponseEntity.ok(0L);
+			}
 
 			var tps = info.partitions().stream()
 					.map(p -> new org.apache.kafka.common.TopicPartition(topic, p.partition()))
@@ -168,19 +184,25 @@ public class DlqController {
 					n += recs.count();
 				}
 			}
-			return n;
+			log.debug("Topic {} has {} messages", topic, n);
+			return ResponseEntity.ok(n);
+		} catch (Exception e) {
+			log.error("Failed to count messages in topic {}", topic, e);
+			return ResponseEntity.ok(0L);
 		}
 	}
 
 	@GetMapping("/{topic}/peek")
-	public List<String> peek(@PathVariable String topic, @RequestParam(defaultValue = "10") int n) throws Exception {
+	public ResponseEntity<List<String>> peek(@PathVariable String topic, @RequestParam(defaultValue = "10") int n) {
 		Properties adminProps = new Properties();
 		adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
 		try (var admin = AdminClient.create(adminProps)) {
 			var desc = admin.describeTopics(Collections.singletonList(topic)).all().get();
 			var info = desc.get(topic);
-			if (info == null)
-				return List.of();
+			if (info == null) {
+				log.warn("Topic {} not found for peek", topic);
+				return ResponseEntity.ok(List.of());
+			}
 
 			var tps = info.partitions().stream()
 					.map(p -> new org.apache.kafka.common.TopicPartition(topic, p.partition()))
@@ -200,7 +222,11 @@ public class DlqController {
 					});
 				}
 			}
-			return out;
+			log.debug("Peeked {} messages from topic {}", out.size(), topic);
+			return ResponseEntity.ok(out);
+		} catch (Exception e) {
+			log.error("Failed to peek messages from topic {}", topic, e);
+			return ResponseEntity.ok(List.of());
 		}
 	}
 
@@ -208,9 +234,14 @@ public class DlqController {
 	public ResponseEntity<String> replayRange(@PathVariable String topic,
 			@RequestParam long fromOffset, @RequestParam long toOffset) throws Exception {
 
-		if (!topic.endsWith(".dlt"))
+		String original;
+		if (topic.endsWith("-dlt") || topic.endsWith("-DLT")) {
+			original = topic.substring(0, topic.length() - 4);
+		} else if (topic.endsWith(".DLT") || topic.endsWith(".dlt")) {
+			original = topic.substring(0, topic.length() - 4);
+		} else {
 			return ResponseEntity.badRequest().body("Not a DLT topic");
-		String original = topic.substring(0, topic.length() - 4);
+		}
 		var tp = new org.apache.kafka.common.TopicPartition(topic, 0); 
 
 		long replayed = 0;

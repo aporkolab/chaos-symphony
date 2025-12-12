@@ -46,44 +46,110 @@
     
     <div class="md:col-span-2 bg-gray-800 p-6 rounded-lg shadow-lg">
       <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold">Recent Orders</h2>
+        <div>
+          <h2 class="text-xl font-semibold">Orders</h2>
+          <p class="text-sm text-gray-400" *ngIf="totalElements > 0">
+            {{ totalElements }} total orders
+          </p>
+        </div>
         <button (click)="replay()" title="Replay events from the last 5 minutes"
                 class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-3 rounded text-sm">
           Replay 5m
         </button>
       </div>
-      <div *ngIf="recentOrders.length === 0" class="text-gray-500">
+
+      
+      <div *ngIf="isLoading && orders.length === 0" class="text-center py-8 text-gray-400">
+        Loading orders...
+      </div>
+
+      
+      <div *ngIf="!isLoading && orders.length === 0" class="text-gray-500 py-8 text-center">
         No orders created yet. Submit a new order to see it here.
       </div>
-      <div *ngIf="recentOrders.length > 0" class="space-y-2">
-        <div *ngFor="let order of recentOrders" class="bg-gray-900 p-3 rounded font-mono text-sm text-gray-300">
+
+      
+      <div *ngIf="orders.length > 0" class="space-y-2 max-h-[450px] overflow-y-auto pr-2">
+        <div *ngFor="let order of orders" class="bg-gray-900 p-3 rounded font-mono text-sm text-gray-300">
           <div class="flex justify-between items-center">
-            <span [ngClass]="{'text-yellow-400': order.status === 'PENDING_REVIEW', 'text-green-400': order.status === 'COMPLETED', 'text-red-400': order.status === 'REJECTED', 'text-blue-400': order.status !== 'PENDING_REVIEW' && order.status !== 'COMPLETED' && order.status !== 'REJECTED'}">
-              {{ order.status === 'PENDING_REVIEW' ? '⚠️ Review Required:' : order.status === 'REJECTED' ? '❌ Rejected:' : order.status === 'COMPLETED' ? '✅ Completed:' : '🔄 Processing:' }}
+            <span [ngClass]="{
+              'text-yellow-400': order.status === 'PENDING_REVIEW', 
+              'text-green-400': order.status === 'COMPLETED', 
+              'text-red-400': order.status === 'REJECTED', 
+              'text-blue-400': order.status !== 'PENDING_REVIEW' && order.status !== 'COMPLETED' && order.status !== 'REJECTED'
+            }">
+              {{ getStatusIcon(order.status) }} {{ getStatusLabel(order.status) }}
             </span>
-            <span class="text-xs px-2 py-1 rounded" 
-                  [ngClass]="{'bg-yellow-900 text-yellow-300': order.status === 'PENDING_REVIEW', 'bg-green-900 text-green-300': order.status === 'COMPLETED', 'bg-red-900 text-red-300': order.status === 'REJECTED', 'bg-blue-900 text-blue-300': order.status !== 'PENDING_REVIEW' && order.status !== 'COMPLETED' && order.status !== 'REJECTED'}">
+            <span class="text-xs px-2 py-1 rounded" [ngClass]="{
+              'bg-yellow-900 text-yellow-300': order.status === 'PENDING_REVIEW', 
+              'bg-green-900 text-green-300': order.status === 'COMPLETED', 
+              'bg-red-900 text-red-300': order.status === 'REJECTED', 
+              'bg-blue-900 text-blue-300': order.status !== 'PENDING_REVIEW' && order.status !== 'COMPLETED' && order.status !== 'REJECTED'
+            }">
               {{ order.status }}
             </span>
           </div>
-          <div class="mt-1 text-xs text-gray-400">{{ order.orderId }}</div>
+          <div class="mt-1 text-xs text-gray-400 flex justify-between">
+            <span>{{ order.id }}</span>
+            <span *ngIf="order.total">{{ order.total }} {{ order.currency }}</span>
+          </div>
           <p *ngIf="order.reviewReason" class="text-xs text-yellow-400 mt-1">{{ order.reviewReason }}</p>
           
           
           <div *ngIf="order.status === 'PENDING_REVIEW'" class="mt-3 flex gap-2">
-            <button (click)="approveOrder(order.orderId)" 
+            <button (click)="approveOrder(order.id)" 
                     [disabled]="isLoading"
                     class="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-xs font-bold py-1 px-3 rounded">
               ✓ Approve
             </button>
-            <button (click)="rejectOrder(order.orderId)" 
+            <button (click)="rejectOrder(order.id)" 
                     [disabled]="isLoading"
                     class="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white text-xs font-bold py-1 px-3 rounded">
               ✗ Reject
             </button>
           </div>
+        </div>
+      </div>
+
+      
+      <div *ngIf="totalPages > 1" class="mt-4 flex items-center justify-between border-t border-gray-700 pt-4">
+        <div class="text-sm text-gray-400">
+          Page {{ currentPage + 1 }} of {{ totalPages }}
+        </div>
+        <div class="flex gap-1">
           
-          <p *ngIf="!order.reviewReason && order.status !== 'PENDING_REVIEW' && order.status !== 'COMPLETED' && order.status !== 'REJECTED'" class="text-xs text-gray-500 mt-1">Processing by orchestrator...</p>
+          <button (click)="firstPage()" [disabled]="!hasPrevious"
+                  class="px-2 py-1 text-sm rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="First page">
+            ««
+          </button>
+          
+          <button (click)="previousPage()" [disabled]="!hasPrevious"
+                  class="px-2 py-1 text-sm rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Previous page">
+            «
+          </button>
+          
+          
+          <button *ngFor="let page of pageNumbers" 
+                  (click)="goToPage(page)"
+                  [ngClass]="{'bg-blue-600': page === currentPage, 'bg-gray-700 hover:bg-gray-600': page !== currentPage}"
+                  class="px-3 py-1 text-sm rounded">
+            {{ page + 1 }}
+          </button>
+          
+          
+          <button (click)="nextPage()" [disabled]="!hasNext"
+                  class="px-2 py-1 text-sm rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Next page">
+            »
+          </button>
+          
+          <button (click)="lastPage()" [disabled]="!hasNext"
+                  class="px-2 py-1 text-sm rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Last page">
+            »»
+          </button>
         </div>
       </div>
     </div>
