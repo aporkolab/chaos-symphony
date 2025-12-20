@@ -1,0 +1,82 @@
+{
+  "info": {
+    "name": "Chaos Symphony - DLQ Admin",
+    "_postman_id": "a1a2a3a4-b5b6-47c8-9d0e-abcdefabcdef",
+    "description": "DLQ topics list & replay endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "List DLQ topics",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{dlqAdmin}}/api/dlq/topics",
+          "host": [
+            "{{dlqAdmin}}"
+          ],
+          "path": [
+            "api",
+            "dlq",
+            "topics"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', ()=> pm.response.to.have.status(200));",
+              "try { var arr = pm.response.json(); if (Array.isArray(arr) && arr.length>0) pm.collectionVariables.set('dltTopic', arr[0]); } catch(e){}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replay chosen DLT topic",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{dlqAdmin}}/api/dlq/{{dltTopic}}/replay",
+          "host": [
+            "{{dlqAdmin}}"
+          ],
+          "path": [
+            "api",
+            "dlq",
+            "{{dltTopic}}",
+            "replay"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', ()=> pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "dlqAdmin",
+      "value": "http://localhost:8089",
+      "type": "string"
+    },
+    {
+      "key": "dltTopic",
+      "value": "inventory.requested.DLT",
+      "type": "string"
+    }
+  ]
+}

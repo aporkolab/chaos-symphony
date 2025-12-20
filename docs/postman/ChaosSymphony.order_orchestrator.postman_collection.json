@@ -1,0 +1,171 @@
+{
+  "info": {
+    "name": "Chaos Symphony - Order & Orchestrator",
+    "_postman_id": "9b7b9a2e-7c9e-4f7f-9e1d-1234567890ab",
+    "description": "Order start endpoints (order-api) + orchestrator health/actuator. Includes a smoke request that generates random orderId.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Order API",
+      "item": [
+        {
+          "name": "Start NEW order (random UUID)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('orderId', pm.variables.replaceIn('{{$randomUUID}}'));",
+                  "if(!pm.collectionVariables.get('amount')) pm.collectionVariables.set('amount','100');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function(){ pm.response.to.have.status(200); });",
+                  "pm.test('Body contains started', function(){ pm.expect(pm.response.text()).to.include('started'); });",
+                  "console.log('orderId', pm.collectionVariables.get('orderId'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{orderApi}}/api/orders/start?amount={{amount}}",
+              "host": [
+                "{{orderApi}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "start"
+              ],
+              "query": [
+                {
+                  "key": "amount",
+                  "value": "{{amount}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Start order with explicit orderId",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{orderApi}}/api/orders/{{orderId}}/start?amount={{amount}}",
+              "host": [
+                "{{orderApi}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "start"
+              ],
+              "query": [
+                {
+                  "key": "amount",
+                  "value": "{{amount}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', ()=> pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Orchestrator",
+      "item": [
+        {
+          "name": "Health (actuator)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orchestrator}}/actuator/health",
+              "host": [
+                "{{orchestrator}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', ()=> pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Loggers (package)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orchestrator}}/actuator/loggers/hu.porkolab.chaosSymphony",
+              "host": [
+                "{{orchestrator}}"
+              ],
+              "path": [
+                "actuator",
+                "loggers",
+                "hu.porkolab.chaosSymphony"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "orderApi",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "orchestrator",
+      "value": "http://localhost:8091",
+      "type": "string"
+    },
+    {
+      "key": "amount",
+      "value": "100",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "demo-order-id",
+      "type": "string"
+    }
+  ]
+}

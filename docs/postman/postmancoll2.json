@@ -1,0 +1,65 @@
+{
+  "info": {
+    "name": "Chaos Symphony",
+    "_postman_id": "c4a8b8c7-9fa8-4f7b-bb5b-0b1e8f1c0001",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Start Order (auto id)",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "http://localhost:8081/api/orders/start?amount=123",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8081",
+          "path": ["api", "orders", "start"],
+          "query": [{"key": "amount", "value": "123"}]
+        }
+      }
+    },
+    {
+      "name": "Start Order (BREAK-ME)",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "http://localhost:8081/api/orders/BREAK-ME/start?amount=1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8081",
+          "path": ["api", "orders", "BREAK-ME", "start"],
+          "query": [{"key": "amount", "value": "1"}]
+        }
+      }
+    },
+    {
+      "name": "DLQ topics",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:8086/api/dlq/topics"
+      }
+    },
+    {
+      "name": "DLQ peek",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:8086/api/dlq/inventory.requested.DLT/peek?n=5"
+      }
+    },
+    {
+      "name": "DLQ replay",
+      "request": {
+        "method": "POST",
+        "url": "http://localhost:8086/api/dlq/inventory.requested.DLT/replay"
+      }
+    },
+    {
+      "name": "Analytics: payment status",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:8087/api/metrics/paymentStatus"
+      }
+    }
+  ]
+}

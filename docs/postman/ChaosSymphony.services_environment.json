@@ -1,0 +1,29 @@
+{
+  "id": "c0ffee00-1234-4abc-8def-1234567890ff",
+  "name": "Chaos Symphony - Services",
+  "values": [
+    {
+      "key": "orderApi",
+      "value": "http://localhost:8080",
+      "enabled": true
+    },
+    {
+      "key": "orchestrator",
+      "value": "http://localhost:8091",
+      "enabled": true
+    },
+    {
+      "key": "dlqAdmin",
+      "value": "http://localhost:8089",
+      "enabled": true
+    },
+    {
+      "key": "amount",
+      "value": "100",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2025-08-25T00:00:00Z",
+  "_postman_exported_using": "ChatGPT"
+}
