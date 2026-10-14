@@ -150,6 +150,13 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
+      - name: ☕ Restore Maven dependencies for security scanning
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'maven'
+
       - name: 🔍 Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
