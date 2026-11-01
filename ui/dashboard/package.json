@@ -27,10 +27,10 @@
     "zone.js": "0.15.1"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "22.2.5",
     "@angular/build": "20.3.42",
     "@angular/cli": "20.3.42",
     "@angular/compiler-cli": "20.3.34",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/d3-scale": "^4.0.8",
     "@types/d3-selection": "^3.0.10",
     "@types/d3-shape": "^3.1.7",
@@ -45,7 +45,6 @@
     "karma-jasmine-html-reporter": "~2.1.0",
     "postcss": "^8.5.23",
     "tailwindcss": "^4.3.3",
-    "typescript": "5.8.3",
-    "@tailwindcss/postcss": "^4.3.3"
+    "typescript": "5.8.3"
   }
 }
